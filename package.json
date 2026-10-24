@@ -1,0 +1,14 @@
+{
+  "name": "hcc-production",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hope Christian Church production team app: SOPs, roster, projects, budgets, contractors and gear.",
+  "type": "module",
+  "engines": { "node": ">=22.5" },
+  "scripts": {
+    "start": "node --no-warnings=ExperimentalWarning server/server.js",
+    "dev": "DATA_DIR=./data node --no-warnings=ExperimentalWarning --watch server/server.js",
+    "build:demo": "node scripts/build-demo.mjs",
+    "test": "node --no-warnings=ExperimentalWarning scripts/smoke-test.mjs"
+  }
+}

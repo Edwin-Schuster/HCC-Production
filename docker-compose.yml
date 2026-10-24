@@ -1,0 +1,28 @@
+services:
+  hcc-production:
+    build: .
+    image: hcc-production:latest
+    container_name: hcc-production
+    restart: unless-stopped
+    ports:
+      - "8080:8080"           # put a reverse proxy (Caddy, Nginx Proxy Manager, Traefik) in front for HTTPS
+    env_file: .env
+    volumes:
+      - hcc-data:/data        # database + uploaded files live here; back this up
+
+  # Optional: self-hosted push server for phone notifications.
+  # Uncomment, then set "ntfy server" in Settings → Notifications & calendar to its public URL.
+  # ntfy:
+  #   image: binwiederhier/ntfy:v2.11.0
+  #   command: serve
+  #   restart: unless-stopped
+  #   environment:
+  #     NTFY_BASE_URL: https://ntfy.example.org
+  #   ports:
+  #     - "8081:80"
+  #   volumes:
+  #     - ntfy-cache:/var/cache/ntfy
+
+volumes:
+  hcc-data:
+  # ntfy-cache:

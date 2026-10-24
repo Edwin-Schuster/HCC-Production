@@ -1,0 +1,9 @@
+{
+  "name": "HCC Production",
+  "short_name": "HCC Prod",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f8f8",
+  "theme_color": "#0f766e",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
