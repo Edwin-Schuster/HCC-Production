@@ -38,7 +38,7 @@ function viewProjects() {
   const cards = ps.map((p) => {
     const prog = isEditor() ? projectProgress(p.id) : null;
     const bud = isEditor() && p.budget ? budgetCalc(p.id) : null;
-    return `<button class="proj-card" data-click="go" data-to="/projects/${p.id}" style="--pc:${esc(p.color || '#0f766e')}">
+    return `<button class="proj-card" data-click="go" data-to="/projects/${p.id}" style="--pc:${esc(p.color || '#d4d4d4')}">
       <span class="proj-card-top"><span class="proj-dot"></span>${pill(p.status || 'Planning')}</span>
       <span class="proj-card-name">${esc(p.name)}</span>
       <span class="proj-card-sum">${esc(p.summary || '')}</span>
@@ -70,7 +70,7 @@ function viewProject({ id, tab = 'overview', sub }) {
     budget: () => projectBudget(p), contractors: () => projectContractors(p), photos: () => projectPhotos(p), activity: () => projectActivity(p),
   }[t]?.() ?? '';
   const drawer = tab === 'tasks' && sub ? taskDrawer(sub) : '';
-  return `<div class="proj-head" style="--pc:${esc(p.color || '#0f766e')}">
+  return `<div class="proj-head" style="--pc:${esc(p.color || '#d4d4d4')}">
       <button class="crumb" data-click="go" data-to="/projects">${icon('folder')} Projects</button>
       <div class="proj-title-row"><h1><span class="proj-dot"></span>${esc(p.name)}</h1>${pill(p.status || 'Planning')}<span class="spacer"></span>
       <button class="btn btn-sm btn-ghost" data-click="go" data-to="/projects/${p.id}/report">${icon('printer')} Report</button>
@@ -351,7 +351,7 @@ function layoutSVG(l, { mini, sel } = {}) {
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
     const elbow = r.style === 'elbow' ? `M${a.x},${a.y} L${b.x},${a.y} L${b.x},${b.y}` : `M${a.x},${a.y} L${b.x},${b.y}`;
     const lx = r.style === 'elbow' ? b.x : mx, ly = r.style === 'elbow' ? a.y : my;
-    return `<g class="run ${sel === r.id ? 'sel' : ''}" data-run="${r.id}"><path d="${elbow}" class="run-hit"/><path d="${elbow}" class="run-line" style="stroke:${esc(r.color || '#2563eb')}"/>${!mini && r.label ? `<g transform="translate(${lx},${ly})"><rect x="${-(r.label.length * 4 + 8)}" y="-11" width="${r.label.length * 8 + 16}" height="22" rx="4" class="run-tag"/><text class="run-text" text-anchor="middle" dy="4">${esc(r.label)}</text></g>` : ''}</g>`;
+    return `<g class="run ${sel === r.id ? 'sel' : ''}" data-run="${r.id}"><path d="${elbow}" class="run-hit"/><path d="${elbow}" class="run-line" style="stroke:${esc(r.color || '#a3a3a3')}"/>${!mini && r.label ? `<g transform="translate(${lx},${ly})"><rect x="${-(r.label.length * 4 + 8)}" y="-11" width="${r.label.length * 8 + 16}" height="22" rx="4" class="run-tag"/><text class="run-text" text-anchor="middle" dy="4">${esc(r.label)}</text></g>` : ''}</g>`;
   }).join('');
   const zones = items.filter((i) => i.type === 'zone').map((z) => `<g class="item zone ${sel === z.id ? 'sel' : ''}" data-item="${z.id}"><rect x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="6" class="zone-rect"/><text x="${z.x + 10}" y="${z.y + 22}" class="zone-text">${esc(z.label)}</text>${!mini && sel === z.id ? `<rect x="${z.x + z.w - 14}" y="${z.y + z.h - 14}" width="16" height="16" class="resize" data-resize="${z.id}"/>` : ''}</g>`).join('');
   const devs = items.filter((i) => i.type !== 'zone').map((d) => `<g class="item dev t-${d.type} ${sel === d.id ? 'sel' : ''} ${LAYOUT?.connectFrom === d.id ? 'from' : ''}" data-item="${d.id}" transform="translate(${d.x},${d.y})"><circle r="17" class="dev-circle"/><text class="dev-glyph" text-anchor="middle" dy="5">${esc(DEVICE_TYPES[d.type]?.[1] || '?')}</text>${mini ? '' : `<text class="dev-label" text-anchor="middle" y="34">${esc(d.label)}</text>`}</g>`).join('');
@@ -378,7 +378,7 @@ function layoutEditor(l) {
     panel = `<h3 class="h4">Cable run</h3><p class="small muted">${esc(a?.label)} → ${esc(b?.label)}</p>
       <label class="field"><span class="label">Label</span><input id="lr-label" class="input input-sm" value="${esc(selRun.label || '')}" data-change="layoutProp" data-k="label"></label>
       <label class="field"><span class="label">Cable from schedule</span><select id="lr-cable" class="input input-sm" data-change="layoutProp" data-k="cableId"><option value="">—</option>${cables.map((c) => `<option value="${c.id}" ${selRun.cableId === c.id ? 'selected' : ''}>${esc(c.label)} · ${esc(c.type)}</option>`).join('')}</select></label>
-      <label class="field"><span class="label">Colour</span><input id="lr-color" type="color" class="input color" value="${esc(selRun.color || '#2563eb')}" data-change="layoutProp" data-k="color"></label>
+      <label class="field"><span class="label">Colour</span><input id="lr-color" type="color" class="input color" value="${esc(selRun.color || '#a3a3a3')}" data-change="layoutProp" data-k="color"></label>
       <label class="field"><span class="label">Path</span><select id="lr-style" class="input input-sm" data-change="layoutProp" data-k="style"><option value="straight">Straight</option><option value="elbow" ${selRun.style === 'elbow' ? 'selected' : ''}>Right angle</option></select></label>
       <button class="btn btn-sm btn-ghost danger-text" data-click="layoutDelete">${icon('trash')} Remove run</button>`;
   }

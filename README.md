@@ -105,4 +105,6 @@ Code layout:
 - `server/server.js`: HTTP server, auth, SQLite, uploads, live updates (SSE), reminders, integrations
 - `public/shared.js`: roles and permissions, activity and notification rules, calendar feed, sample data. The server and the browser both use this file.
 - `public/js/`: the single-page app (`core` = data, markdown and UI helpers; `views-*` = screens; `main` = routes and actions)
-- `public/app.css`: design tokens and styles, with light and dark themes
+- `public/app.css`: design tokens and styles (black/grey theme, Avenir Next LT Pro Regular + Bold)
+- `public/brand/`: Hope Christian Church logo, mark and app icons
+- `public/fonts/`: drop your licensed Avenir Next LT Pro files here (see the README in that folder)

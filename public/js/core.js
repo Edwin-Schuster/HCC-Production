@@ -97,11 +97,16 @@ const DEMO_USERS = [
 ];
 const LocalAPI = {
   mode: 'demo',
-  KEY: 'hcc-demo-v1',
+  KEY: 'hcc-demo-v2',
   db: null, me: null, listeners: [], blobUrls: new Map(), idb: null, keys: [],
   persist() { store.set(this.KEY, this.db); store.set(this.KEY + '-me', this.me?.id || null); store.set(this.KEY + '-users', DEMO_USERS); store.set(this.KEY + '-keys', this.keys); },
   async init() {
-    this.db = store.get(this.KEY, null) || HC.seed('usr_admin');
+    this.db = store.get(this.KEY, null);
+    if (!this.db) {
+      const now = new Date().toISOString();
+      this.db = HC.seed('usr_admin');
+      for (const docs of Object.values(this.db)) for (const d of docs) { d.createdAt ||= now; d.updatedAt ||= now; }
+    }
     const savedUsers = store.get(this.KEY + '-users', null);
     if (savedUsers) { DEMO_USERS.length = 0; DEMO_USERS.push(...savedUsers); }
     this.keys = store.get(this.KEY + '-keys', []);
@@ -573,7 +578,7 @@ function fieldHTML(f, v, fid) {
     case 'number': case 'money': return wrap(`<input id="${id}" name="${f.k}" class="input" type="number" step="${f.type === 'money' ? '0.01' : 'any'}" inputmode="decimal" ${req} value="${esc(v ?? '')}">`);
     case 'date': return wrap(`<input id="${id}" name="${f.k}" class="input" type="date" ${req} value="${esc(v || '')}">`);
     case 'checkbox': return `<div class="field ${f.full ? 'full' : ''}"><label class="check"><input id="${id}" type="checkbox" name="${f.k}" ${v ? 'checked' : ''}> <span>${esc(f.label)}</span></label>${help}</div>`;
-    case 'color': return wrap(`<input id="${id}" name="${f.k}" class="input color" type="color" value="${esc(v || '#0f766e')}">`);
+    case 'color': return wrap(`<input id="${id}" name="${f.k}" class="input color" type="color" value="${esc(v || '#d4d4d4')}">`);
     case 'select': case 'user': case 'contractor': case 'project': case 'person':
       return wrap(`<select id="${id}" name="${f.k}" class="input" ${req}>${f.req ? '' : '<option value="">—</option>'}${optionList(f).map(([val, lab]) => `<option value="${esc(val)}" ${String(v ?? '') === String(val) ? 'selected' : ''}>${esc(lab)}</option>`).join('')}</select>`);
     case 'users': case 'multi': case 'roles': {

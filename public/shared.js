@@ -247,13 +247,13 @@
     const P = 'proj_sanctuary', P2 = 'proj_youth';
 
     const teamRoles = [
-      { id: 'role_td', name: 'Technical Director', color: '#0f766e', description: 'Owns the production systems, schedules volunteers and signs off on changes.' },
-      { id: 'role_a1', name: 'Audio Engineer (A1)', color: '#2563eb', description: 'Runs FOH mix on the console, line checks, and the broadcast mix.' },
-      { id: 'role_video', name: 'Video Director', color: '#b45309', description: 'Calls cameras and switches the livestream.' },
-      { id: 'role_cam', name: 'Camera Operator', color: '#9333ea', description: 'Runs a manned camera position or the PTZ joystick.' },
-      { id: 'role_pp', name: 'ProPresenter / Lyrics', color: '#db2777', description: 'Runs slides, lyrics, lower thirds and announcements.' },
-      { id: 'role_ltg', name: 'Lighting', color: '#ca8a04', description: 'Runs the lighting console and pre-service looks.' },
-      { id: 'role_stream', name: 'Stream Tech', color: '#dc2626', description: 'Monitors the encoder, chat and stream health.' },
+      { id: 'role_td', name: 'Technical Director', color: '#d4d4d4', description: 'Owns the production systems, schedules volunteers and signs off on changes.' },
+      { id: 'role_a1', name: 'Audio Engineer (A1)', color: '#a3a3a3', description: 'Runs FOH mix on the console, line checks, and the broadcast mix.' },
+      { id: 'role_video', name: 'Video Director', color: '#8a8a8a', description: 'Calls cameras and switches the livestream.' },
+      { id: 'role_cam', name: 'Camera Operator', color: '#c4c4c4', description: 'Runs a manned camera position or the PTZ joystick.' },
+      { id: 'role_pp', name: 'ProPresenter / Lyrics', color: '#b8b8b8', description: 'Runs slides, lyrics, lower thirds and announcements.' },
+      { id: 'role_ltg', name: 'Lighting', color: '#9a9a9a', description: 'Runs the lighting console and pre-service looks.' },
+      { id: 'role_stream', name: 'Stream Tech', color: '#737373', description: 'Monitors the encoder, chat and stream health.' },
     ];
 
     const people = [
@@ -324,7 +324,7 @@ Walk every input with the band. Mark any failure on the patch sheet and create a
 
 ## Reference
 
-![Booth rack overview](data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="260" viewBox="0 0 640 260"><rect width="640" height="260" fill="#e6efed"/><g font-family="monospace" font-size="14" fill="#0b3b35"><rect x="40" y="30" width="160" height="200" rx="6" fill="#fff" stroke="#0f766e" stroke-width="2"/><text x="60" y="60">RACK A</text><text x="60" y="90">UPS</text><text x="60" y="115">Sequencer</text><text x="60" y="140">Stage box 1</text><text x="60" y="165">Stage box 2</text><rect x="240" y="30" width="160" height="200" rx="6" fill="#fff" stroke="#0f766e" stroke-width="2"/><text x="260" y="60">RACK B</text><text x="260" y="90">Switcher</text><text x="260" y="115">Router</text><text x="260" y="140">Encoder</text><rect x="440" y="30" width="160" height="200" rx="6" fill="#fff" stroke="#0f766e" stroke-width="2"/><text x="460" y="60">AMP RACK</text><text x="460" y="90">Amp 1 - Mains</text><text x="460" y="115">Amp 2 - Subs</text><text x="460" y="140">Amp 3 - Fills</text></g></svg>')})
+![Booth rack overview](data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="260" viewBox="0 0 640 260"><rect width="640" height="260" fill="#1c1c1c"/><g font-family="monospace" font-size="14" fill="#e5e5e5"><rect x="40" y="30" width="160" height="200" rx="6" fill="#262626" stroke="#d4d4d4" stroke-width="2"/><text x="60" y="60">RACK A</text><text x="60" y="90">UPS</text><text x="60" y="115">Sequencer</text><text x="60" y="140">Stage box 1</text><text x="60" y="165">Stage box 2</text><rect x="240" y="30" width="160" height="200" rx="6" fill="#262626" stroke="#d4d4d4" stroke-width="2"/><text x="260" y="60">RACK B</text><text x="260" y="90">Switcher</text><text x="260" y="115">Router</text><text x="260" y="140">Encoder</text><rect x="440" y="30" width="160" height="200" rx="6" fill="#262626" stroke="#d4d4d4" stroke-width="2"/><text x="460" y="60">AMP RACK</text><text x="460" y="90">Amp 1 - Mains</text><text x="460" y="115">Amp 2 - Subs</text><text x="460" y="140">Amp 3 - Fills</text></g></svg>')})
 
 :::accordion What if the console will not boot?
 Hold the power button for 10 seconds, wait 30 seconds, then power on again. If it still fails, switch to the backup show file on the USB stick in the drawer and call the Technical Director.
@@ -428,8 +428,8 @@ Every device gets a label with its asset tag, IP address and firmware version. P
     ];
 
     const projects = [
-      { id: P, name: 'Sanctuary AV Refresh', status: 'Active', start: day(-30), end: day(60), color: '#0f766e', summary: 'Replace the main PA, add two PTZ cameras and re-cable the booth to the stage.', budget: 85000, lead: adminId, description: 'Phase 1 covers the booth-to-stage fiber trunk and stage boxes. Phase 2 covers the PA swap during the week of the 15th.' },
-      { id: P2, name: 'Youth Room Install', status: 'Planning', start: day(14), end: day(75), color: '#b45309', summary: 'New projector, small mixer and stream-ready camera for the youth room.', budget: 18000, lead: 'usr_james', description: '' },
+      { id: P, name: 'Sanctuary AV Refresh', status: 'Active', start: day(-30), end: day(60), color: '#d4d4d4', summary: 'Replace the main PA, add two PTZ cameras and re-cable the booth to the stage.', budget: 85000, lead: adminId, description: 'Phase 1 covers the booth-to-stage fiber trunk and stage boxes. Phase 2 covers the PA swap during the week of the 15th.' },
+      { id: P2, name: 'Youth Room Install', status: 'Planning', start: day(14), end: day(75), color: '#8a8a8a', summary: 'New projector, small mixer and stream-ready camera for the youth room.', budget: 18000, lead: 'usr_james', description: '' },
     ];
 
     const T = (o) => ({ id: uid('tsk'), projectId: P, status: 'To Do', priority: 'Medium', assignees: [], labels: [], attachments: [], createdAt: iso(-20), ...o });
@@ -476,9 +476,9 @@ Every device gets a label with its asset tag, IP address and firmware version. P
         { id: 'g7', type: 'display', label: 'Confidence', x: 500, y: 250 },
       ],
       runs: [
-        { id: 'r1', from: 'g5', to: 'g6', label: 'FO-001', color: '#f59e0b' },
-        { id: 'r2', from: 'g5', to: 'g3', label: 'NET-014', color: '#2563eb' },
-        { id: 'r3', from: 'g5', to: 'g4', label: 'NET-015', color: '#2563eb' },
+        { id: 'r1', from: 'g5', to: 'g6', label: 'FO-001', color: '#e5e5e5' },
+        { id: 'r2', from: 'g5', to: 'g3', label: 'NET-014', color: '#a3a3a3' },
+        { id: 'r3', from: 'g5', to: 'g4', label: 'NET-015', color: '#a3a3a3' },
       ],
     }];
 

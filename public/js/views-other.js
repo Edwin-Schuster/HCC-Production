@@ -5,15 +5,15 @@
 function loginView() {
   if (DEMO) {
     return `<div class="login"><div class="login-card">
-      <div class="brand big">${brandMark()}<span>${esc(settings().orgName || 'HCC Production')}</span></div>
+      ${loginBrand()}
       <h1>Pick a demo account</h1>
       <p class="muted">This preview runs entirely in your browser. Each account shows what that role can see and do.</p>
-      <div class="demo-users">${DEMO_USERS.map((u) => `<button class="demo-user" data-click="demoLogin" data-u="${esc(u.username)}">${avatar(u.id)}<span><b>${esc(u.name)}</b><span class="muted small">${esc(u.role)} · ${{ admin: 'everything, incl. users and integrations', editor: 'projects, budgets, gear, contractors', viewer: 'SOPs, roster and project status only' }[u.role]}</span></span></button>`).join('')}
-      <button class="demo-user" data-click="go" data-to="/sops"><span class="avatar" style="--h:200">?</span><span><b>Public visitor</b><span class="muted small">not signed in · public SOPs only</span></span></button></div>
+      <div class="demo-users">${DEMO_USERS.map((u) => `<button class="demo-user" data-click="demoLogin" data-u="${esc(u.username)}"><span class="avatar">${esc(initials(u.name))}</span><span><b>${esc(u.name)}</b><span class="muted small">${esc(u.role)} · ${{ admin: 'everything, incl. users and integrations', editor: 'projects, budgets, gear, contractors', viewer: 'SOPs, roster and project status only' }[u.role]}</span></span></button>`).join('')}
+      <button class="demo-user" data-click="go" data-to="/sops"><span class="avatar">?</span><span><b>Public visitor</b><span class="muted small">not signed in · public SOPs only</span></span></button></div>
     </div></div>`;
   }
   return `<div class="login"><form class="login-card" data-submit="login">
-    <div class="brand big">${brandMark()}<span>${esc(settings().orgName || 'HCC Production')}</span></div>
+    ${loginBrand()}
     <h1>Sign in</h1>
     <div class="field"><label class="label" for="login-u">Username</label><input id="login-u" class="input input-lg" autocomplete="username" autocapitalize="off" required autofocus></div>
     <div class="field"><label class="label" for="login-p">Password</label><input id="login-p" class="input input-lg" type="password" autocomplete="current-password" required></div>
@@ -21,7 +21,9 @@ function loginView() {
     ${settings().publicSops !== false ? '<button type="button" class="btn btn-ghost full-w" data-click="go" data-to="/sops">Read public SOPs without signing in</button>' : ''}
   </form></div>`;
 }
-const brandMark = () => `<svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" rx="7" class="bm-bg"/><path d="M16 7v18M9 13h14" class="bm-cross"/><circle cx="24" cy="24" r="3" class="bm-dot"/></svg>`;
+const asset = (name) => window.HCC_ASSETS?.[name] || `brand/${name}`;
+const brandMark = () => `<img class="brand-mark" src="${asset('hcc-mark.png')}" alt="" aria-hidden="true">`;
+const loginBrand = () => `<div><img class="login-logo" src="${asset('hcc-logo.png')}" alt="Hope Christian Church"><p class="login-sub">Production</p></div>`;
 
 // ---------------- Dashboard ----------------
 function viewHome() {
@@ -64,7 +66,7 @@ function viewHome() {
       <section class="card pad"><h2 class="h3">Team roster</h2>${rosterMini(people)}<button class="btn btn-sm btn-ghost" data-click="go" data-to="/roster">Full roster</button></section>
     </div>
     <section class="section"><div class="row"><h2 class="h3">Active projects</h2><span class="spacer"></span><span class="muted small">${openPunch} open punch item${openPunch === 1 ? '' : 's'}</span></div>
-      <div class="proj-grid">${active.map((p) => { const pr = projectProgress(p.id); return `<button class="proj-card" data-click="go" data-to="/projects/${p.id}" style="--pc:${esc(p.color || '#0f766e')}"><span class="proj-card-top"><span class="proj-dot"></span>${pill(p.status)}</span><span class="proj-card-name">${esc(p.name)}</span><span class="meter"><span style="width:${pr.pct}%"></span></span><span class="proj-card-stats small"><span>${pr.done}/${pr.total} tasks</span>${pr.overdue ? `<span class="danger-text">${pr.overdue} overdue</span>` : ''}</span></button>`; }).join('')}</div></section>
+      <div class="proj-grid">${active.map((p) => { const pr = projectProgress(p.id); return `<button class="proj-card" data-click="go" data-to="/projects/${p.id}" style="--pc:${esc(p.color || '#d4d4d4')}"><span class="proj-card-top"><span class="proj-dot"></span>${pill(p.status)}</span><span class="proj-card-name">${esc(p.name)}</span><span class="meter"><span style="width:${pr.pct}%"></span></span><span class="proj-card-stats small"><span>${pr.done}/${pr.total} tasks</span>${pr.overdue ? `<span class="danger-text">${pr.overdue} overdue</span>` : ''}</span></button>`; }).join('')}</div></section>
     <div class="grid-2">
       <section class="card pad"><h2 class="h3">Recent activity</h2><ul class="activity">${acts.map((a) => `<li class="act"><span class="act-dot"></span><span class="small"><b>${esc(a.actorName)}</b> ${esc(a.text)} <span class="muted">· ${esc(a.noun || '')} “${esc(a.name)}” · ${ago(a.at)}</span></span></li>`).join('') || '<li class="muted small">Nothing yet.</li>'}</ul></section>
       <section class="card pad"><h2 class="h3">Recently updated SOPs</h2><ul class="mini-list">${sops.map((p) => `<li><button class="mini-row" data-click="go" data-to="/sops/${p.id}"><span class="grow">${esc(p.title)}</span><span class="muted small">${ago(p.updatedAt)}</span></button></li>`).join('')}</ul></section>

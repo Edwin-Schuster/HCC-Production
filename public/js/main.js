@@ -55,10 +55,10 @@ const SCHEMAS = {
 };
 const NEW_DEFAULTS = {
   tasks: { status: 'To Do', priority: 'Medium', assignees: [], labels: [], attachments: [] },
-  projects: { status: 'Planning', color: '#0f766e' }, cables: { status: 'Planned', type: 'Cat6A' }, bom: { status: 'Needed', qty: 1 },
+  projects: { status: 'Planning', color: '#d4d4d4' }, cables: { status: 'Planned', type: 'Cat6A' }, bom: { status: 'Needed', qty: 1 },
   purchases: { status: 'Draft', lines: [{ desc: '', qty: 1, unitCost: 0, receivedQty: 0 }], attachments: [] }, punch: { status: 'Open', photos: [] },
   invoices: { status: 'Received', attachments: [] }, sow: { status: 'Draft', attachments: [] }, gear: { status: 'In Service', configs: [], photos: [] },
-  people: { status: 'Available', roles: [] }, teamRoles: { color: '#2563eb' }, webhooks: { active: true, events: '*', secret: '' }, contractors: { attachments: [] },
+  people: { status: 'Available', roles: [] }, teamRoles: { color: '#a3a3a3' }, webhooks: { active: true, events: '*', secret: '' }, contractors: { attachments: [] },
 };
 const TBL_COLL = { cables: 'cables', bom: 'bom', pos: 'purchases', sow: 'sow', punch: 'punch', inv: 'invoices', access: 'access', gear: 'gear' };
 
@@ -88,7 +88,7 @@ function shell(body) {
       <div class="brand">${brandMark()}<span>${esc(settings().orgName || 'HCC Production')}</span></div>
       <nav class="nav">${nav.map(([p, l, ic]) => `<button class="nav-item ${active(p) ? 'on' : ''}" data-click="go" data-to="${p}">${icon(ic)}<span>${l}</span>${badge(p)}</button>`).join('')}</nav>
       <div class="sidebar-foot">${S.user ? `<button class="me" data-click="go" data-to="/profile">${avatar(S.user.id)}<span><b>${esc(S.user.name)}</b><span class="muted small">${esc(S.user.role)}</span></span></button>` : `<button class="btn btn-primary full-w" data-click="go" data-to="/login">Sign in</button>`}
-      ${!DEMO ? `<button class="btn btn-xs btn-ghost" data-click="theme">Theme: ${esc(store.get('hcc-theme', 'system'))}</button>` : ''}</div>
+</div>
     </aside>
     <div class="scrim" data-click="toggleSidebar"></div>
     <div class="main">
@@ -165,7 +165,6 @@ const ACT = {
   scrollTo: (el) => { document.getElementById(el.dataset.target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
   zoom: (el) => viewFile({ fileId: null, url: null, name: el.alt || 'Image', mime: 'image/png', _src: el.src }),
   viewFile: (el) => viewFile(JSON.parse(el.dataset.json)),
-  theme: () => { const order = ['system', 'light', 'dark']; const cur = store.get('hcc-theme', 'system'); const next = order[(order.indexOf(cur) + 1) % 3]; store.set('hcc-theme', next); applyTheme(); render(); },
 
   // generic docs
   newDoc: (el) => {
@@ -496,7 +495,7 @@ const CHANGE = {
     const d = LAYOUT.doc; const it = d.items.find((i) => i.id === LAYOUT.sel) || d.runs.find((r) => r.id === LAYOUT.sel);
     if (!it) return;
     it[el.dataset.k] = el.value;
-    if (el.dataset.k === 'cableId' && el.value) { const c = byId('cables', el.value); if (c) { it.label = c.label; it.color = `hsl(${hue(c.type)} 65% 45%)`; } }
+    if (el.dataset.k === 'cableId' && el.value) { const c = byId('cables', el.value); if (c) { it.label = c.label; it.color = ['#f5f5f5', '#d4d4d4', '#a3a3a3', '#8a8a8a'][hue(c.type) % 4]; } }
     await saveLayout();
   },
   photoLoc: (el) => { uiSet('photoLoc', el.value); render(); },
@@ -579,7 +578,7 @@ document.addEventListener('pointerdown', (ev) => {
     if (LAYOUT.mode === 'connect' && it.type !== 'zone') {
       if (!LAYOUT.connectFrom) { LAYOUT.connectFrom = it.id; LAYOUT.sel = it.id; render(); return; }
       if (LAYOUT.connectFrom !== it.id) {
-        const r = { id: HC.uid('r'), from: LAYOUT.connectFrom, to: it.id, label: '', color: '#2563eb', style: 'straight' };
+        const r = { id: HC.uid('r'), from: LAYOUT.connectFrom, to: it.id, label: '', color: '#a3a3a3', style: 'straight' };
         LAYOUT.doc.runs.push(r); LAYOUT.sel = r.id; LAYOUT.connectFrom = null; LAYOUT.mode = 'move';
         saveLayout();
       }
@@ -619,13 +618,7 @@ async function reload() {
 }
 let live = false;
 function startLive() { if (live || !S.user) return; live = true; api.subscribe(onRemote); }
-function applyTheme() {
-  if (DEMO) return;
-  const t = store.get('hcc-theme', 'system');
-  if (t === 'system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = t;
-}
 async function boot() {
-  applyTheme();
   if (!DEMO) {
     try { const r = await fetch('/api/health'); if (!r.ok) throw new Error(); }
     catch { window.HCC_DEMO = true; DEMO = true; api = LocalAPI; }
