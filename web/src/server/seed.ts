@@ -1,10 +1,11 @@
 import { eq } from "drizzle-orm";
 import type { Executor } from "@/db";
-import { folders, sops, teamRoles, users, workspaceMembers } from "@/db/schema";
+import { folders, runs, sops, sopViews, teamRoles, users, workspaceMembers } from "@/db/schema";
 import { callout, check, code, divider, h, image, p, snippetRef, step, table } from "@/blocks/build";
 import type { Actor } from "@/server/permissions";
 import { createSop, publishDraft, saveDraft, getOrCreateDraft } from "@/server/services/sops";
 import { createSnippet } from "@/server/services/snippets";
+import { checkStep, checkable, finishRun, getRun, startRun } from "@/server/services/runs";
 import { DEFAULT_TEAM_ROLES } from "./bootstrap";
 
 const RACK_SVG = "/seed/rack-diagram.svg";
@@ -186,6 +187,27 @@ export async function seedDemoContent(db: Executor, workspaceId: string) {
   const daysFromNow = (d: number) => new Date(Date.now() + d * 864e5);
   await db.update(sops).set({ nextReviewAt: daysFromNow(-3) }).where(eq(sops.id, rfSop.id));
   await db.update(sops).set({ nextReviewAt: daysFromNow(10) }).where(eq(sops.id, live.id));
+
+  // Some history for the analytics page: a month of reads and a few finished runs.
+  const readers = [admin.id, maria.id, james.id];
+  const popular = [startup.id, startup.id, startup.id, live.id, live.id, rfSop.id, shutdown.id];
+  const views = [];
+  for (let d = 0; d < 30; d++) {
+    for (let i = 0; i < (d * 7) % 5 + 1; i++) {
+      const sopId = popular[(d + i) % popular.length];
+      views.push({ workspaceId, sopId, userId: readers[(d + i) % readers.length], viewedAt: new Date(Date.now() - d * 864e5 - i * 3_600_000) });
+    }
+  }
+  await db.insert(sopViews).values(views);
+  for (const [i, minutes] of [38, 31, 44].entries()) {
+    const { id } = await startRun(db, actor, startup.id, { label: ["9:00 service", "11:00 service", "Easter rehearsal"][i] });
+    const run = await getRun(db, actor, id);
+    // Everyone ticks everything except the last step ("Line check with the band"): it gets skipped.
+    for (const b of checkable(run.doc.blocks).slice(0, -1)) await checkStep(db, actor, id, { blockId: b.id, done: true });
+    await finishRun(db, actor, id, "completed");
+    const started = new Date(Date.now() - (i + 1) * 7 * 864e5);
+    await db.update(runs).set({ startedAt: started, completedAt: new Date(started.getTime() + minutes * 60_000) }).where(eq(runs.id, id));
+  }
 
   // 5. A draft that has never been published.
   const fw = await createSop(db, actor, {

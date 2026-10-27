@@ -11,6 +11,7 @@ import { getSopDocument } from "@/server/services/sops";
 import { getApprovalState } from "@/server/services/approvals";
 import { ReviewPanel } from "@/components/sop/review-panel";
 import { brandScope } from "@/server/services/branding";
+import { ViewBeacon } from "@/components/sop/view-beacon";
 import { StartRunButton } from "@/components/sop/start-run";
 import { listThreads } from "@/server/services/comments";
 import { listFeedback } from "@/server/services/feedback";
@@ -108,6 +109,7 @@ async function Reader({ params, searchParams }: { params: PageProps<"/sops/[id]"
     >
       <div className="mx-auto flex w-full max-w-[1120px] gap-12 px-[max(16px,env(safe-area-inset-left))] py-6 sm:px-8 sm:py-10">
         <article className="min-w-0 max-w-[740px] flex-1" {...brandScope(doc.branding)}>
+        {!version.isDraft && !viewingOld && <ViewBeacon sopId={sop.id} />}
           <nav aria-label="Breadcrumb" className="mb-4 flex items-center gap-1 text-xs text-muted">
             <Link href="/sops" className="hover:text-fg-hi">
               SOPs

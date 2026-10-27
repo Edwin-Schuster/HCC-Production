@@ -70,6 +70,9 @@ async function NavContent() {
             <NavLink href="/snippets" icon={NavIcons.snippets}>
               Snippets
             </NavLink>
+            <NavLink href="/analytics" icon={NavIcons.analytics}>
+              Analytics
+            </NavLink>
           </>
         )}
       </nav>
