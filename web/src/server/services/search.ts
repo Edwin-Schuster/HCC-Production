@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Executor } from "@/db";
-import { blocks, sopVersions } from "@/db/schema";
+import { blocks, sops, sopVersions } from "@/db/schema";
 import { numberSteps, plain } from "@/blocks/tree";
 import type { BlockNode } from "@/blocks/schema";
 import { canReadDrafts, type Actor } from "@/server/permissions";
@@ -53,12 +53,10 @@ export async function searchSops(db: Executor, actor: Actor, input: z.input<type
   const versionOf = new Map<string, string>();
   const bySop = new Map(visible.map((s) => [s.id, s]));
   const ids = visible.map((s) => s.id);
-  const currentRows = await db.execute<{ sop_id: string; current_version_id: string | null }>(
-    sql`select id as sop_id, current_version_id from sops where id in (${sql.join(ids.map((i) => sql`${i}`), sql`, `)})`,
-  );
-  for (const r of currentRows.rows) if (r.current_version_id) versionOf.set(r.current_version_id, r.sop_id);
+  const currentRows = await db.select({ sopId: sops.id, currentVersionId: sops.currentVersionId }).from(sops).where(inArray(sops.id, ids));
+  for (const r of currentRows) if (r.currentVersionId) versionOf.set(r.currentVersionId, r.sopId);
   if (canReadDrafts(actor)) {
-    const neverPublished = currentRows.rows.filter((r) => !r.current_version_id).map((r) => r.sop_id);
+    const neverPublished = currentRows.filter((r) => !r.currentVersionId).map((r) => r.sopId);
     if (neverPublished.length) {
       const drafts = await db.select({ id: sopVersions.id, sopId: sopVersions.sopId }).from(sopVersions).where(and(inArray(sopVersions.sopId, neverPublished), isNull(sopVersions.publishedAt)));
       for (const d of drafts) versionOf.set(d.id, d.sopId);
@@ -66,9 +64,10 @@ export async function searchSops(db: Executor, actor: Actor, input: z.input<type
   }
 
   const tsq = sql`to_tsquery('english', ${query})`;
-  const titleRows = await db.execute<{ id: string; rank: number }>(
-    sql`select id, ts_rank(search_vector, ${tsq}) as rank from sops where id in (${sql.join(ids.map((i) => sql`${i}`), sql`, `)}) and search_vector @@ ${tsq}`,
-  );
+  const titleRows = await db
+    .select({ id: sops.id, rank: sql<number>`ts_rank(${sops.searchVector}, ${tsq})` })
+    .from(sops)
+    .where(and(inArray(sops.id, ids), sql`${sops.searchVector} @@ ${tsq}`));
   const versionIds = [...versionOf.keys()];
   const blockRows = versionIds.length
     ? (
@@ -88,7 +87,7 @@ export async function searchSops(db: Executor, actor: Actor, input: z.input<type
 
   const scores = new Map<string, { score: number; titleMatch: boolean; blockIds: { id: string; snippet: string }[] }>();
   const bump = (sopId: string) => scores.get(sopId) ?? (scores.set(sopId, { score: 0, titleMatch: false, blockIds: [] }), scores.get(sopId)!);
-  for (const r of titleRows.rows) {
+  for (const r of titleRows) {
     const s = bump(r.id);
     s.score += Number(r.rank) * 3;
     s.titleMatch = true;

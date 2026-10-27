@@ -1,30 +1,15 @@
 import { eq } from "drizzle-orm";
-import type { DB } from "@/db";
+import type { Executor } from "@/db";
 import { folders, teamRoles, users, workspaceMembers } from "@/db/schema";
 import { callout, check, code, divider, h, image, p, step, table } from "@/blocks/build";
 import type { Actor } from "@/server/permissions";
 import { createSop, publishDraft, saveDraft, getOrCreateDraft } from "@/server/services/sops";
 import { DEFAULT_TEAM_ROLES } from "./bootstrap";
 
-const RACK_SVG =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="280" viewBox="0 0 720 280"><rect width="720" height="280" fill="#0f1011"/><g font-family="ui-monospace,monospace" font-size="13" fill="#d0d6e0">${[
-      ["RACK A", ["UPS", "Sequencer", "Stage box 1", "Stage box 2"]],
-      ["RACK B", ["Switcher", "Router", "Encoder", "Core switch"]],
-      ["AMP RACK", ["Amp 1 · Mains", "Amp 2 · Subs", "Amp 3 · Fills"]],
-    ]
-      .map(([name, items], i) => {
-        const x = 40 + i * 230;
-        return `<rect x="${x}" y="30" width="190" height="220" rx="10" fill="#161718" stroke="#383b3f"/><text x="${x + 18}" y="60" fill="#ffffff">${name}</text>${(items as string[])
-          .map((it, j) => `<rect x="${x + 14}" y="${78 + j * 40}" width="162" height="30" rx="5" fill="#23252a"/><text x="${x + 26}" y="${98 + j * 40}">${it}</text>`)
-          .join("")}`;
-      })
-      .join("")}</g></svg>`,
-  );
+const RACK_SVG = "/seed/rack-diagram.svg";
 
 /** Demo content so the app is useful the moment it starts. */
-export async function seedDemoContent(db: DB, workspaceId: string) {
+export async function seedDemoContent(db: Executor, workspaceId: string) {
   const roleRows = await db
     .insert(teamRoles)
     .values(DEFAULT_TEAM_ROLES.map((name) => ({ workspaceId, name })))

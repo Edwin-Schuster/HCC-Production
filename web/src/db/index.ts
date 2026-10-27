@@ -44,13 +44,23 @@ export async function createDb(url = process.env.DATABASE_URL ?? "pglite://./.da
 /** Shared app-wide connection, migrated on first use. */
 export function getDb(): Promise<DB> {
   if (holder.db) return Promise.resolve(holder.db);
-  holder.ready ??= createDb().then(async ({ db, close }) => {
-    holder.db = db;
-    holder.close = close;
-    const { bootstrap } = await import("@/server/bootstrap");
-    await bootstrap(db);
-    return db;
-  });
+  holder.ready ??= createDb()
+    .then(async ({ db, close }) => {
+      const { bootstrap } = await import("@/server/bootstrap");
+      try {
+        await bootstrap(db);
+      } catch (e) {
+        await close().catch(() => {});
+        throw e;
+      }
+      holder.db = db;
+      holder.close = close;
+      return db;
+    })
+    .catch((e) => {
+      holder.ready = undefined; // let the next request retry
+      throw e;
+    });
   return holder.ready;
 }
 

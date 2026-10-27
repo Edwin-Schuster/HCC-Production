@@ -247,3 +247,17 @@ export const auditEvents = pgTable(
   },
   (t) => [index("audit_target_idx").on(t.targetType, t.targetId)],
 );
+
+/** Uploaded files (SOP images). Bytes live in the storage adapter (local disk or S3-compatible). */
+export const files = pgTable("files", {
+  id: id(),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  mime: text("mime").notNull(),
+  size: integer("size").notNull(),
+  storageKey: text("storage_key").notNull(),
+  createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: createdAt(),
+});

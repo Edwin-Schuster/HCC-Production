@@ -8,7 +8,7 @@ export async function testDb() {
   const { db, close } = await createDb("pglite://memory");
   const ws = await bootstrap(db, { seedDemo: false, quiet: true });
   const [admin] = await db.select().from(users).limit(1);
-  const actorFor = async (role: Exclude<Role, "public">, username = role): Promise<Actor> => {
+  const actorFor = async (role: Exclude<Role, "public">, username: string = role): Promise<Actor> => {
     if (role === "admin") return { userId: admin.id, name: admin.name, username: admin.username, role, workspaceId: ws.id };
     const [u] = await db.insert(users).values({ username, name: username }).returning();
     await db.insert(workspaceMembers).values({ workspaceId: ws.id, userId: u.id, role });

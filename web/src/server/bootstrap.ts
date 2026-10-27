@@ -39,7 +39,7 @@ export async function bootstrap(db: DB, opts: { seedDemo?: boolean; quiet?: bool
   const [{ n: sopCount }] = await db.select({ n: sql<number>`count(*)::int` }).from(sops).where(eq(sops.workspaceId, ws.id));
   if (seedDemo && !sopCount && !folderCount) {
     const { seedDemoContent } = await import("./seed");
-    await seedDemoContent(db, ws.id);
+    await db.transaction((tx) => seedDemoContent(tx, ws.id));
   } else if (!folderCount) {
     await db.insert(folders).values({ workspaceId: ws.id, name: "General", codePrefix: "GEN", visibility: "members" });
   }

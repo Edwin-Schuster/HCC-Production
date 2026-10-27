@@ -1,26 +1,163 @@
 @import "tailwindcss";
 
+/*
+ * HCC Production — "midnight precision instrument": near-black surfaces, paper-white type, hairline borders,
+ * one light-grey highlight for the primary action and active indicators. Compact 4px rhythm; radii 12 / 6 / 4 / pill.
+ * Type: Avenir Next LT Pro (Regular + Bold) when available, Inter otherwise; JetBrains Mono for IDs and metadata.
+ * Dark is the default; [data-theme="light"] switches every token.
+ */
+
+@font-face {
+  font-family: "HCC Avenir";
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: local("Avenir Next LT Pro"), local("AvenirNextLTPro-Regular"), url("/fonts/AvenirNextLTPro-Regular.woff2") format("woff2"), local("Avenir Next"), local("AvenirNext-Regular");
+}
+@font-face {
+  font-family: "HCC Avenir";
+  font-weight: 500 700;
+  font-style: normal;
+  font-display: swap;
+  src: local("Avenir Next LT Pro Bold"), local("AvenirNextLTPro-Bold"), url("/fonts/AvenirNextLTPro-Bold.woff2") format("woff2"), local("Avenir Next Bold"), local("AvenirNext-Bold");
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #08090a;
+  --surface: #0f1011;
+  --surface-2: #161718;
+  --surface-3: #23252a;
+  --fg-hi: #ffffff;
+  --fg: #e5e5e6;
+  --fg-2: #d0d6e0;
+  --muted: #8a8f98;
+  --faint: #62666d;
+  --line: #23252a;
+  --line-2: #383b3f;
+  --hair: rgb(255 255 255 / 0.08);
+  --wash: rgb(255 255 255 / 0.05);
+  --wash-2: rgb(255 255 255 / 0.03);
+  --cta: #d9dce1;
+  --cta-hover: #f2f3f5;
+  --cta-ink: #08090a;
+  --iris: #6366f1;
+  --iris-text: #a5a7fa;
+  --teal: #02b8cc;
+  --good: #4cc26a;
+  --good-soft: rgb(39 166 68 / 0.14);
+  --warn: #f2a65a;
+  --warn-soft: rgb(242 166 90 / 0.13);
+  --bad: #f07f7f;
+  --bad-soft: rgb(235 87 87 / 0.14);
+  --info-soft: rgb(99 102 241 / 0.16);
+  --urgent: #eb5757;
+  --shadow-lg: 0 4px 32px rgb(8 9 10 / 0.6), inset 0 0 0 1px rgb(255 255 255 / 0.03);
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: #fbfbfc;
+  --surface: #ffffff;
+  --surface-2: #f4f5f7;
+  --surface-3: #e8e9ed;
+  --fg-hi: #08090a;
+  --fg: #1d1e21;
+  --fg-2: #33363c;
+  --muted: #6b6f76;
+  --faint: #9a9ea6;
+  --line: #e4e5e9;
+  --line-2: #d2d4d9;
+  --hair: rgb(0 0 0 / 0.1);
+  --wash: rgb(0 0 0 / 0.04);
+  --wash-2: rgb(0 0 0 / 0.025);
+  --cta: #23252a;
+  --cta-hover: #08090a;
+  --cta-ink: #ffffff;
+  --iris-text: #4f46e5;
+  --good: #1f8a3c;
+  --good-soft: rgb(39 166 68 / 0.12);
+  --warn: #b45309;
+  --warn-soft: rgb(242 166 90 / 0.16);
+  --bad: #c53030;
+  --bad-soft: rgb(235 87 87 / 0.12);
+  --shadow-lg: 0 8px 32px rgb(15 16 17 / 0.12), 0 0 0 1px rgb(0 0 0 / 0.04);
+  color-scheme: light;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-fg-hi: var(--fg-hi);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-hair: var(--hair);
+  --color-wash: var(--wash);
+  --color-wash-2: var(--wash-2);
+  --color-cta: var(--cta);
+  --color-cta-hover: var(--cta-hover);
+  --color-cta-ink: var(--cta-ink);
+  --color-iris: var(--iris);
+  --color-iris-text: var(--iris-text);
+  --color-teal: var(--teal);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-info-soft: var(--info-soft);
+  --color-urgent: var(--urgent);
+  --font-sans: "HCC Avenir", "Avenir Next LT Pro", "Avenir Next", var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jbmono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --radius-card: 12px;
+  --radius-control: 6px;
+  --radius-badge: 4px;
+  --shadow-lg: var(--shadow-lg);
+  --tracking-tight: -0.012em;
+  --tracking-display: -0.022em;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg-2);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    letter-spacing: -0.011em;
+    font-feature-settings: "cv01" on, "ss03" on;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 {
+    color: var(--fg-hi);
+    font-weight: 510;
+    letter-spacing: -0.012em;
+    text-wrap: balance;
+  }
+  ::placeholder {
+    color: var(--faint);
+  }
+  :focus-visible {
+    outline: 1px solid var(--fg-2);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: rgb(165 167 250 / 0.3);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }
