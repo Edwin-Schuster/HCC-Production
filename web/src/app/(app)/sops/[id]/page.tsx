@@ -10,6 +10,7 @@ import { listFolders } from "@/server/services/folders";
 import { getSopDocument } from "@/server/services/sops";
 import { getApprovalState } from "@/server/services/approvals";
 import { ReviewPanel } from "@/components/sop/review-panel";
+import { StartRunButton } from "@/components/sop/start-run";
 import { listThreads } from "@/server/services/comments";
 import { listFeedback } from "@/server/services/feedback";
 import { CommentsButton, DiscussionProvider, StepTools, type StepInfo } from "@/components/sop/discussion";
@@ -158,14 +159,14 @@ async function Reader({ params, searchParams }: { params: PageProps<"/sops/[id]"
             </Banner>
           )}
           {openFeedback.length > 0 && (
-          <Banner tone="warn" icon={<Flag />}>
-            Readers flagged {openFeedback.length} problem{openFeedback.length === 1 ? "" : "s"} with this SOP.{" "}
-            <Link href={`/sops/${sop.id}/feedback`} className="underline underline-offset-2">
-              Review feedback
-            </Link>
-          </Banner>
-        )}
-        {viewingOld && (
+            <Banner tone="warn" icon={<Flag />}>
+              Readers flagged {openFeedback.length} problem{openFeedback.length === 1 ? "" : "s"} with this SOP.{" "}
+              <Link href={`/sops/${sop.id}/feedback`} className="underline underline-offset-2">
+                Review feedback
+              </Link>
+            </Banner>
+          )}
+          {viewingOld && (
             <Banner tone="warn" icon={<FileClock />}>
               You're viewing <b className="font-[510]">v{version.number}</b>, published <LocalDate iso={version.publishedAt} />. It has been replaced.{" "}
               <Link href={`/sops/${sop.id}`} className="underline underline-offset-2">
@@ -179,6 +180,7 @@ async function Reader({ params, searchParams }: { params: PageProps<"/sops/[id]"
             totalMinutes={minutes}
             actions={
               <>
+                {signedIn && !version.isDraft && !viewingOld && sop.status !== "retired" && <StartRunButton sopId={sop.id} compact />}
                 {signedIn && <CommentsButton />}
                 <SopActions
                   sopId={sop.id}

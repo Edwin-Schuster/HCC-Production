@@ -53,9 +53,14 @@ async function NavContent() {
           Search
         </NavLink>
         {actor.userId && (
-          <NavLink href="/inbox" icon={NavIcons.inbox}>
-            <Counted count={unread}>Inbox</Counted>
-          </NavLink>
+          <>
+            <NavLink href="/inbox" icon={NavIcons.inbox}>
+              <Counted count={unread}>Inbox</Counted>
+            </NavLink>
+            <NavLink href="/runs" icon={NavIcons.runs}>
+              Runs
+            </NavLink>
+          </>
         )}
         {atLeast(actor, "editor") && (
           <>

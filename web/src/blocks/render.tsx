@@ -24,6 +24,8 @@ export type StepSlots = {
   actions?: (step: StepNode, number: string) => ReactNode;
   /** Rendered under the step's fields. */
   footer?: (step: StepNode, number: string) => ReactNode;
+  /** Replaces a checklist item's box, e.g. with a live checkbox during a run. */
+  check?: (item: Extract<BlockNode, { type: "checklist" }>) => ReactNode;
 };
 
 export type RenderContext = {
@@ -277,12 +279,14 @@ function ChecklistItem({ node, ctx, depth }: { node: Extract<BlockNode, { type: 
   return (
     <li id={`b-${node.id}`} className="scroll-mt-24 break-inside-avoid">
       <div className="flex items-start gap-2.5">
-        <span
-          aria-hidden
-          className={cn("mt-[5px] grid size-4 shrink-0 place-items-center rounded-[4px] border", node.content.checked ? "border-iris bg-iris text-white" : "border-line-2")}
-        >
-          {node.content.checked && <CheckCircle2 className="size-3" strokeWidth={3} />}
-        </span>
+        {ctx.slots.check?.(node) ?? (
+          <span
+            aria-hidden
+            className={cn("mt-[5px] grid size-4 shrink-0 place-items-center rounded-[4px] border", node.content.checked ? "border-iris bg-iris text-white" : "border-line-2")}
+          >
+            {node.content.checked && <CheckCircle2 className="size-3" strokeWidth={3} />}
+          </span>
+        )}
         <span className={cn(node.content.checked && "text-muted line-through")}>
           <Inline text={node.content.text} />
         </span>
