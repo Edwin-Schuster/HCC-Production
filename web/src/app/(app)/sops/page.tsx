@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { Plus } from "lucide-react";
+import { FileUp, Plus } from "lucide-react";
 import { getContext } from "@/server/context";
 import { atLeast } from "@/server/permissions";
 import { descendantIds, listFolders } from "@/server/services/folders";
@@ -50,11 +50,18 @@ async function Library({ searchParams }: { searchParams: PageProps<"/sops">["sea
         subtitle={`${sops.length} procedure${sops.length === 1 ? "" : "s"}${!actor.userId ? " · showing public SOPs. Sign in to see the rest." : ""}`}
         actions={
           editor && (
-            <Button asChild variant="primary">
-              <Link href={`/sops/new${folder ? `?folder=${folder.id}` : ""}`}>
-                <Plus /> New SOP
-              </Link>
-            </Button>
+            <>
+              <Button asChild variant="ghost">
+                <Link href="/sops/import">
+                  <FileUp /> Import
+                </Link>
+              </Button>
+              <Button asChild variant="primary">
+                <Link href={`/sops/new${folder ? `?folder=${folder.id}` : ""}`}>
+                  <Plus /> New SOP
+                </Link>
+              </Button>
+            </>
           )
         }
       />

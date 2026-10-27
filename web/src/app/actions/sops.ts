@@ -4,6 +4,7 @@ import { refresh, revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createSop, deleteSop, discardDraft, publishDraft, restoreVersion, setRetired, updateSopMeta, type CreateSopInput, type UpdateMetaInput } from "@/server/services/sops";
+import { createFromImport, type CreateFromImportInput } from "@/server/services/imports";
 import { run } from "./run";
 
 const Id = z.string().min(1).max(64);
@@ -47,5 +48,11 @@ export async function deleteSopAction(sopId: string) {
 export async function restoreVersionAction(sopId: string, versionNumber: number, replaceDraft: boolean) {
   const res = await run((db, actor) => restoreVersion(db, actor, Id.parse(sopId), z.number().int().min(1).parse(versionNumber), { replaceDraft }));
   if (res.ok) redirect(`/sops/${sopId}/edit`);
+  return res;
+}
+
+export async function createFromImportAction(input: z.input<typeof CreateFromImportInput>) {
+  const res = await run((db, actor) => createFromImport(db, actor, input));
+  if (res.ok) redirect(`/sops/${res.data.id}/edit`);
   return res;
 }
