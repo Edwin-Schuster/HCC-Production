@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>HCC SOPs settings</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      body { max-width: 520px; margin: 40px auto; padding: 0 16px; }
+      label { display: block; margin: 14px 0 4px; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <h1>HCC SOPs settings</h1>
+    <p class="muted">Connect the extension to your HCC Production app. Create an API key on your profile page there. Use a “read and write” key if you want to record SOPs.</p>
+    <form id="form">
+      <label for="server">HCC address</label>
+      <input id="server" placeholder="https://hcc.example.org" required />
+      <label for="key">API key</label>
+      <input id="key" placeholder="hcc_…" required autocomplete="off" />
+      <p class="row"><button class="primary">Save and test</button><span id="status" class="muted"></span></p>
+    </form>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

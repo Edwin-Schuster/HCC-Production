@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "HCC Production SOPs",
+  "short_name": "HCC SOPs",
+  "version": "1.0.0",
+  "description": "See the SOPs for the page you're on, and record clicks into a new SOP with screenshots.",
+  "icons": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
+  "action": { "default_popup": "popup.html", "default_title": "HCC SOPs" },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "options_page": "options.html",
+  "permissions": ["storage", "unlimitedStorage", "tabs", "scripting", "activeTab"],
+  "host_permissions": ["<all_urls>"]
+}

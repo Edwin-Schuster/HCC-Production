@@ -1,0 +1,26 @@
+:root { color-scheme: light dark; --bg: #0b0c0e; --surface: #141518; --line: #26282d; --fg: #e8e9ec; --muted: #8a8f98; --cta: #e6e6e6; --cta-ink: #0b0c0e; --bad: #f87171; --good: #4ade80; }
+@media (prefers-color-scheme: light) { :root { --bg: #fff; --surface: #f6f7f8; --line: #e3e5e8; --fg: #16181d; --muted: #6b7280; --cta: #16181d; --cta-ink: #fff; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1 { font-size: 14px; font-weight: 600; margin: 0; }
+h2 { font-size: 12px; font-weight: 600; color: var(--muted); margin: 14px 0 6px; text-transform: uppercase; letter-spacing: .04em; }
+a { color: inherit; }
+.muted { color: var(--muted); }
+.row { display: flex; align-items: center; gap: 8px; }
+.grow { flex: 1; min-width: 0; }
+button, .button { font: inherit; border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 6px; padding: 6px 10px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+button.primary { background: var(--cta); color: var(--cta-ink); border-color: var(--cta); font-weight: 600; }
+button.danger { color: var(--bad); }
+button:disabled { opacity: .5; cursor: default; }
+input, select, textarea { font: inherit; width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+ul.list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+ul.list li { padding: 8px 10px; border-top: 1px solid var(--line); }
+ul.list li:first-child { border-top: 0; }
+.code { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
+.error { color: var(--bad); }
+.ok { color: var(--good); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bad); display: inline-block; animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+.step { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: start; }
+.step img { width: 100%; border-radius: 6px; border: 1px solid var(--line); margin-top: 6px; }
+.num { font: 11px ui-monospace, monospace; color: var(--muted); padding-top: 7px; }
