@@ -4,6 +4,7 @@ import { getContext, getActor } from "@/server/context";
 import { atLeast } from "@/server/permissions";
 import { listFolders } from "@/server/services/folders";
 import { listSops } from "@/server/services/sops";
+import { unreadCount } from "@/server/services/notifications";
 import { FolderTree, NavIcons, NavLink } from "@/components/shell/nav";
 import { PaletteButton, ShellFrame } from "@/components/shell/frame";
 import { CommandPalette } from "@/components/shell/palette";
@@ -38,9 +39,10 @@ function Nav() {
 
 async function NavContent() {
   const { db, actor } = await getContext();
-  const [folders, sops] = await Promise.all([listFolders(db, actor), listSops(db, actor)]);
+  const [folders, sops, unread] = await Promise.all([listFolders(db, actor), listSops(db, actor), unreadCount(db, actor)]);
   const counts = new Map<string, number>();
   for (const s of sops) counts.set(s.folderId, (counts.get(s.folderId) ?? 0) + 1);
+  const reviewsDue = atLeast(actor, "editor") ? sops.filter((s) => s.reviewState === "overdue" || s.reviewState === "due").length : 0;
   return (
     <>
       <nav className="grid gap-px" aria-label="Main">
@@ -50,10 +52,20 @@ async function NavContent() {
         <NavLink href="/search" icon={NavIcons.search}>
           Search
         </NavLink>
-        {atLeast(actor, "editor") && (
-          <NavLink href="/snippets" icon={NavIcons.snippets}>
-            Snippets
+        {actor.userId && (
+          <NavLink href="/inbox" icon={NavIcons.inbox}>
+            <Counted count={unread}>Inbox</Counted>
           </NavLink>
+        )}
+        {atLeast(actor, "editor") && (
+          <>
+            <NavLink href="/reviews" icon={NavIcons.reviews}>
+              <Counted count={reviewsDue}>Reviews</Counted>
+            </NavLink>
+            <NavLink href="/snippets" icon={NavIcons.snippets}>
+              Snippets
+            </NavLink>
+          </>
         )}
       </nav>
       <div>
@@ -77,6 +89,15 @@ async function NavContent() {
 async function Palette() {
   const actor = await getActor();
   return <CommandPalette canCreate={atLeast(actor, "editor")} signedIn={Boolean(actor.userId)} />;
+}
+
+function Counted({ count, children }: { count: number; children: ReactNode }) {
+  return (
+    <span className="flex w-full items-center justify-between gap-2">
+      <span className="truncate">{children}</span>
+      {count > 0 && <span className="rounded-full bg-wash px-1.5 font-mono text-[11px] leading-[18px] text-fg-hi">{count}</span>}
+    </span>
+  );
 }
 
 function NavSkeleton() {

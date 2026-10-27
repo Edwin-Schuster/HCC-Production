@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, ChevronRight, Folder, FolderOpen, Puzzle, Search } from "lucide-react";
+import { BookOpen, CalendarClock, ChevronRight, Folder, FolderOpen, Inbox, Puzzle, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
@@ -48,4 +48,4 @@ export function FolderTree({ folders }: { folders: NavFolder[] }) {
   );
 }
 
-export const NavIcons = { library: <BookOpen />, search: <Search />, snippets: <Puzzle /> };
+export const NavIcons = { library: <BookOpen />, search: <Search />, snippets: <Puzzle />, inbox: <Inbox />, reviews: <CalendarClock /> };

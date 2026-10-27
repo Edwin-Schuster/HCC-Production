@@ -18,6 +18,7 @@ import {
   type Visibility,
 } from "@/server/permissions";
 import { audit } from "./audit";
+import { reviewState, type ReviewState } from "@/lib/review";
 import { requireFolder } from "./folders";
 import { snippetResolver } from "./snippets";
 import { expandSnippets } from "@/blocks/snippets";
@@ -158,6 +159,7 @@ export type SopSummary = {
   nextReviewAt: string | null;
   hasDraft: boolean;
   updatedAt: string;
+  reviewState: ReviewState;
 };
 
 export const ListSopsInput = z.object({
@@ -169,6 +171,7 @@ export const ListSopsInput = z.object({
 
 export async function listSops(db: Executor, actor: Actor, input: z.input<typeof ListSopsInput> = {}): Promise<SopSummary[]> {
   const f = ListSopsInput.parse(input);
+  const now = new Date();
   const current = alias(sopVersions, "current");
   const conds = [eq(sops.workspaceId, actor.workspaceId)];
   if (f.folderIds?.length) conds.push(inArray(sops.folderId, f.folderIds));
@@ -209,6 +212,7 @@ export async function listSops(db: Executor, actor: Actor, input: z.input<typeof
       nextReviewAt: r.sop.nextReviewAt?.toISOString() ?? null,
       hasDraft: canReadDrafts(actor) && Boolean(r.hasDraft),
       updatedAt: r.sop.updatedAt.toISOString(),
+      reviewState: r.sop.currentVersionId && r.sop.status !== "retired" ? reviewState(r.sop.nextReviewAt, now) : "none",
     }));
 }
 
@@ -277,6 +281,7 @@ export async function getSopDocument(db: Executor, actor: Actor, sopId: string, 
       nextReviewAt: sop.nextReviewAt?.toISOString() ?? null,
       hasDraft,
       updatedAt: sop.updatedAt.toISOString(),
+      reviewState: sop.currentVersionId && sop.status !== "retired" ? reviewState(sop.nextReviewAt, new Date()) : "none",
       reviewIntervalDays: sop.reviewIntervalDays,
       currentVersionId: sop.currentVersionId,
     },

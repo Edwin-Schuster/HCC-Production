@@ -10,7 +10,7 @@ import { listMembers } from "@/server/services/workspace";
 import { Empty, Page, PageHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/field";
-import { STATUS_OPTIONS, StatusBadge } from "@/components/sop/status";
+import { ReviewBadge, STATUS_OPTIONS, StatusBadge } from "@/components/sop/status";
 import { LocalDate } from "@/components/local-date";
 
 export const metadata: Metadata = { title: "SOPs" };
@@ -140,6 +140,7 @@ async function Library({ searchParams }: { searchParams: PageProps<"/sops">["sea
                   )}
                 </span>
                 <span className="order-4 flex items-center justify-end gap-1.5">
+                  <ReviewBadge state={s.reviewState} className="hidden sm:inline-flex" />
                   {s.hasDraft && s.versionNumber && <StatusBadge status="draft" className="hidden sm:inline-flex" />}
                   <StatusBadge status={s.status} />
                 </span>

@@ -120,6 +120,7 @@ async function Reader({ params, searchParams }: { params: PageProps<"/sops/[id]"
           actions={
             <SopActions
               sopId={sop.id}
+              title={sop.title}
               versionQuery={versionQuery}
               canEdit={doc.canEdit}
               canManage={doc.canManage}

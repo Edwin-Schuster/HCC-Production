@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { Executor } from "@/db";
-import { folders, teamRoles, users, workspaceMembers } from "@/db/schema";
+import { folders, sops, teamRoles, users, workspaceMembers } from "@/db/schema";
 import { callout, check, code, divider, h, image, p, snippetRef, step, table } from "@/blocks/build";
 import type { Actor } from "@/server/permissions";
 import { createSop, publishDraft, saveDraft, getOrCreateDraft } from "@/server/services/sops";
@@ -178,6 +178,11 @@ export async function seedDemoContent(db: Executor, workspaceId: string) {
     step("Put used batteries in the recycling tub", { minutes: 1 }),
   ]);
   await publishDraft(db, actor, rfSop.id, { changeSummary: "First version." });
+
+  // Show the review schedule in action: one SOP overdue, one due soon.
+  const daysFromNow = (d: number) => new Date(Date.now() + d * 864e5);
+  await db.update(sops).set({ nextReviewAt: daysFromNow(-3) }).where(eq(sops.id, rfSop.id));
+  await db.update(sops).set({ nextReviewAt: daysFromNow(10) }).where(eq(sops.id, live.id));
 
   // 5. A draft that has never been published.
   const fw = await createSop(db, actor, {

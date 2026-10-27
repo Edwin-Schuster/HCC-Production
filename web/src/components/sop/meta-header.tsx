@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { SopDocument } from "@/server/services/sops";
 import { LocalDate } from "@/components/local-date";
-import { StatusBadge } from "./status";
+import { ReviewBadge, StatusBadge } from "./status";
 import { formatMinutes } from "@/blocks/tree";
 
 /** Title block + metadata grid. Shared by the reading view and the PDF so they match. */
@@ -13,7 +13,13 @@ export function MetaHeader({ doc, totalMinutes, actions, print }: { doc: SopDocu
     ["Version", version.isDraft ? <span key="v">Draft{sop.versionNumber ? <span className="text-muted"> (after v{sop.versionNumber})</span> : null}</span> : <span key="v" className="font-mono">v{version.number}</span>],
     ["Owner", sop.ownerName],
     ["Effective", version.isDraft ? "Not published" : <LocalDate key="e" iso={version.publishedAt} />],
-    ["Next review", <LocalDate key="r" iso={sop.nextReviewAt} />],
+    [
+      "Next review",
+      <span key="r" className="inline-flex items-center gap-1.5">
+        <LocalDate iso={sop.nextReviewAt} />
+        {!print && <ReviewBadge state={sop.reviewState} />}
+      </span>,
+    ],
     ["Status", <StatusBadge key="s" status={status} />],
   ];
   if (totalMinutes) items.push(["Time", <span key="t" className="font-mono">{formatMinutes(totalMinutes)}</span>]);

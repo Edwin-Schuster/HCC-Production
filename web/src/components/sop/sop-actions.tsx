@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArchiveRestore, ChevronDown, FileDown, History, MoreHorizontal, Pencil, Settings2, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, CalendarCheck, ChevronDown, FileDown, History, MoreHorizontal, Pencil, Settings2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -10,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
+import { MarkReviewedDialog } from "./mark-reviewed";
 
 type Props = {
   sopId: string;
+  title: string;
   versionQuery: string;
   canEdit: boolean;
   canManage: boolean;
@@ -26,6 +28,7 @@ type Props = {
 
 export function SopActions(p: Props) {
   const [details, setDetails] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const [confirm, setConfirm] = useState<null | "retire" | "delete">(null);
   const [pending, start] = useTransition();
   const pdf = (w?: string) => `/api/sops/${p.sopId}/pdf?${new URLSearchParams({ ...(p.versionQuery ? Object.fromEntries(new URLSearchParams(p.versionQuery)) : {}), ...(w ? { watermark: w } : {}) })}`;
@@ -75,6 +78,11 @@ export function SopActions(p: Props) {
             <MenuItem onSelect={() => setDetails(true)}>
               <Settings2 /> Owner, folder, tags & review…
             </MenuItem>
+            {p.published && !p.retired && (
+              <MenuItem onSelect={() => setReviewing(true)}>
+                <CalendarCheck /> Mark as reviewed…
+              </MenuItem>
+            )}
             {p.canManage && (
               <>
                 <MenuSeparator />
@@ -98,6 +106,8 @@ export function SopActions(p: Props) {
         </Menu>
       )}
       <ThemeToggle />
+
+      <MarkReviewedDialog sopId={p.sopId} title={p.title} open={reviewing} onOpenChange={setReviewing} />
 
       <Dialog open={details} onOpenChange={setDetails}>
         <DialogContent title="SOP details" description="These apply to every version. Changes to a published SOP are recorded in its audit log.">
