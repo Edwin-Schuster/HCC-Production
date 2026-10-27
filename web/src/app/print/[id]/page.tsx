@@ -7,6 +7,7 @@ import { getContext } from "@/server/context";
 import { AppError } from "@/server/errors";
 import { getSopDocument } from "@/server/services/sops";
 import { MetaHeader } from "@/components/sop/meta-header";
+import { brandScope } from "@/server/services/branding";
 
 export const metadata: Metadata = { title: "Print", robots: { index: false } };
 
@@ -38,7 +39,7 @@ async function PrintDoc({ params, searchParams }: { params: PageProps<"/print/[i
           <span className="-rotate-[30deg] select-none text-[110px] font-[510] tracking-[0.08em] text-black/[0.06]">{watermark}</span>
         </div>
       )}
-      <div className="relative z-10 mx-auto max-w-[720px]">
+      <div className="relative z-10 mx-auto max-w-[720px]" {...brandScope(doc.branding)}>
         <MetaHeader doc={doc} totalMinutes={totalDuration(doc.blocks)} print />
         {!doc.version.isDraft && doc.version.changeSummary && (
           <p className="mt-3 text-[12px] text-muted">

@@ -25,6 +25,15 @@ export function MetaHeader({ doc, totalMinutes, actions, print }: { doc: SopDocu
   if (totalMinutes) items.push(["Time", <span key="t" className="font-mono">{formatMinutes(totalMinutes)}</span>]);
   return (
     <header className="sop-header break-inside-avoid border-b border-line pb-6">
+      {(doc.branding.logoUrl || doc.branding.headerText) && (
+        <div className="mb-4 flex items-center gap-3">
+          {doc.branding.logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- workspace logo upload
+            <img src={doc.branding.logoUrl} alt="" className="h-7 w-auto max-w-[160px] object-contain" />
+          )}
+          {doc.branding.headerText && <span className="text-xs font-[510] uppercase tracking-[0.06em] text-muted">{doc.branding.headerText}</span>}
+        </div>
+      )}
       <div className="mb-2 flex flex-wrap items-center gap-x-2 text-xs text-muted">
         <span>{sop.folderName}</span>
         {sop.tags.length > 0 && <span aria-hidden>·</span>}

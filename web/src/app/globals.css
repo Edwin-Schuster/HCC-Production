@@ -203,3 +203,24 @@
     break-after: avoid;
   }
 }
+
+/* ---------- Workspace branding, scoped to SOP documents (reading view and PDF) ---------- */
+[data-brand] .sop-step-num[data-top] {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 22%, var(--surface));
+}
+[data-brand] .sop-body a,
+[data-brand] .sop-header a {
+  text-decoration-color: var(--brand);
+}
+[data-brand] .sop-header {
+  border-bottom-color: color-mix(in srgb, var(--brand) 45%, var(--line));
+}
+[data-brand-font="serif"] .sop-body,
+[data-brand-font="serif"] .sop-header :is(h1, p, dl) {
+  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
+}
+[data-brand-font="system"] .sop-body,
+[data-brand-font="system"] .sop-header :is(h1, p, dl) {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}

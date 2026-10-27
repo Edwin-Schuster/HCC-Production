@@ -1,11 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Source_Serif_4 } from "next/font/google";
 import { Toaster } from "sonner";
 import { ThemeScript } from "@/components/theme-script";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], weight: "variable" });
 const mono = JetBrains_Mono({ variable: "--font-jbmono", subsets: ["latin"], weight: ["400"] });
+// Only downloaded when a workspace picks the serif branding font.
+const serif = Source_Serif_4({ variable: "--font-serif", subsets: ["latin"], weight: "variable", preload: false });
 
 export const metadata: Metadata = {
   title: { default: "HCC Production", template: "%s · HCC Production" },
@@ -17,7 +19,7 @@ export const viewport: Viewport = { themeColor: "#08090a", width: "device-width"
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" data-theme="dark" suppressHydrationWarning className={`${inter.variable} ${mono.variable} h-full`}>
+    <html lang="en" data-theme="dark" suppressHydrationWarning className={`${inter.variable} ${mono.variable} ${serif.variable} h-full`}>
       <head>
         <ThemeScript />
       </head>

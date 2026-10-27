@@ -343,6 +343,7 @@ function Step({ node, ctx, depth }: { node: StepNode; ctx: RenderContext; depth:
       <div className="flex break-inside-avoid gap-3.5">
         {ctx.slots.badge?.(node, num) ?? (
           <span
+            data-top={top ? "" : undefined}
             className={cn(
               "sop-step-num mt-[1px] flex h-[26px] shrink-0 items-center justify-center rounded-full border font-mono text-xs tabular-nums",
               top ? "min-w-[26px] border-line-2 bg-surface-2 px-1.5 text-fg-hi" : "min-w-[26px] border-line bg-transparent px-2 text-fg-2",

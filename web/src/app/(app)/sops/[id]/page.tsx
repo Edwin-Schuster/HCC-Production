@@ -10,6 +10,7 @@ import { listFolders } from "@/server/services/folders";
 import { getSopDocument } from "@/server/services/sops";
 import { getApprovalState } from "@/server/services/approvals";
 import { ReviewPanel } from "@/components/sop/review-panel";
+import { brandScope } from "@/server/services/branding";
 import { StartRunButton } from "@/components/sop/start-run";
 import { listThreads } from "@/server/services/comments";
 import { listFeedback } from "@/server/services/feedback";
@@ -106,7 +107,7 @@ async function Reader({ params, searchParams }: { params: PageProps<"/sops/[id]"
       allowFeedback={signedIn && !version.isDraft && version.id === sop.currentVersionId}
     >
       <div className="mx-auto flex w-full max-w-[1120px] gap-12 px-[max(16px,env(safe-area-inset-left))] py-6 sm:px-8 sm:py-10">
-        <article className="min-w-0 max-w-[740px] flex-1">
+        <article className="min-w-0 max-w-[740px] flex-1" {...brandScope(doc.branding)}>
           <nav aria-label="Breadcrumb" className="mb-4 flex items-center gap-1 text-xs text-muted">
             <Link href="/sops" className="hover:text-fg-hi">
               SOPs
@@ -231,7 +232,8 @@ async function Reader({ params, searchParams }: { params: PageProps<"/sops/[id]"
               <Empty title="This SOP is empty">{doc.canEdit ? "Open the editor and type / to add steps." : null}</Empty>
             )}
           </div>
-        </article>
+          {doc.branding.footerText && <p className="mt-12 border-t border-line pt-4 text-xs text-muted">{doc.branding.footerText}</p>}
+      </article>
         <aside className="sticky top-10 hidden max-h-[calc(100dvh-80px)] w-[220px] shrink-0 self-start overflow-y-auto xl:block">
           <Toc items={items} />
         </aside>

@@ -2,7 +2,7 @@ import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm
 import { z } from "zod";
 import type { Executor } from "@/db";
 import { alias } from "drizzle-orm/pg-core";
-import { blocks, docCodeCounters, folders, sops, sopVersions, teamRoles, templates, users } from "@/db/schema";
+import { blocks, docCodeCounters, folders, sops, sopVersions, teamRoles, templates, users, type Branding } from "@/db/schema";
 import { DocumentSchema, type BlockNode } from "@/blocks/schema";
 import { blockText, buildTree, cloneWithNewIds, flatten, instantiate } from "@/blocks/tree";
 import { conflict, forbidden, invalid, notFound } from "@/server/errors";
@@ -22,6 +22,7 @@ import { reviewState, type ReviewState } from "@/lib/review";
 import { requireFolder } from "./folders";
 import { snippetResolver } from "./snippets";
 import { approvalsForPublish } from "./approvals";
+import { getBranding } from "./branding";
 import { notify } from "./notifications";
 import { expandSnippets } from "@/blocks/snippets";
 import type { SnippetInfo } from "@/blocks/render";
@@ -235,6 +236,7 @@ export type SopDocument = {
   blocks: BlockNode[];
   snippets: Record<string, SnippetInfo>;
   roles: Record<string, string>;
+  branding: Branding;
   canEdit: boolean;
   canManage: boolean;
 };
@@ -300,6 +302,7 @@ export async function getSopDocument(db: Executor, actor: Actor, sopId: string, 
     },
     blocks: expanded.blocks,
     snippets: expanded.snippets,
+    branding: await getBranding(db, actor.workspaceId),
     roles: Object.fromEntries(roleRows.map((r) => [r.id, r.name])),
     canEdit: canEditSop(actor, sop, visibility),
     canManage: canManageSop(actor, sop),

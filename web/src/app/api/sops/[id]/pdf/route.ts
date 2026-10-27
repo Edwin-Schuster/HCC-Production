@@ -25,8 +25,8 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/sops/[id]/pd
     const pdf = await renderPdf({
       url: `${base}/print/${id}?${q}`,
       cookies: session ? [{ name: SESSION_COOKIE, value: session }] : [],
-      header: `${doc.sop.documentCode} · ${doc.version.title} · ${version}`,
-      footerLeft: `${version}${doc.version.publishedAt ? ` · effective ${doc.version.publishedAt.slice(0, 10)}` : ""} · printed ${new Date().toISOString().slice(0, 10)} · uncontrolled when printed`,
+      header: `${doc.branding.headerText ? `${doc.branding.headerText} · ` : ""}${doc.sop.documentCode} · ${doc.version.title} · ${version}`,
+      footerLeft: `${doc.branding.footerText ? `${doc.branding.footerText} · ` : ""}${version}${doc.version.publishedAt ? ` · effective ${doc.version.publishedAt.slice(0, 10)}` : ""} · printed ${new Date().toISOString().slice(0, 10)} · uncontrolled when printed`,
     });
     const filename = `${doc.sop.documentCode} ${doc.version.title} ${version}.pdf`.replace(/[^\w .-]+/g, "");
     return new NextResponse(new Uint8Array(pdf), {
