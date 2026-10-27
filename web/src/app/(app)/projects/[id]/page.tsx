@@ -7,6 +7,7 @@ import { listActivity } from "@/server/services/activity";
 import { getProject } from "@/server/services/projects";
 import { assignableMembers, listTasks } from "@/server/services/tasks";
 import { listCables } from "@/server/services/cabling";
+import { projectBudget } from "@/server/services/purchasing";
 import { CABLE_VERIFIED } from "@/lib/cabling";
 import { Markdown } from "@/components/markdown";
 import { Button } from "@/components/ui/button";
@@ -51,7 +52,7 @@ async function Overview({ params }: { params: PageProps<"/projects/[id]">["param
       </div>
     );
 
-  const [tasks, members, history, cables] = await Promise.all([listTasks(db, actor, id), assignableMembers(db, actor), listActivity(db, actor, { projectId: id }, 8), listCables(db, actor, id)]);
+  const [tasks, members, history, cables, budget] = await Promise.all([listTasks(db, actor, id), assignableMembers(db, actor), listActivity(db, actor, { projectId: id }, 8), listCables(db, actor, id), projectBudget(db, actor, id)]);
   const tested = cables.filter((c) => CABLE_VERIFIED.includes(c.status)).length;
   const t = today();
   const { total, done, overdue } = project.progress;
@@ -63,10 +64,16 @@ async function Overview({ params }: { params: PageProps<"/projects/[id]">["param
   const team = [...new Set(tasks.flatMap((x) => x.assignees))].filter((u) => names.has(u));
 
   return (
-    <div className="grid gap-6">
+    <div className="grid grid-cols-1 gap-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Tasks done" value={`${total ? Math.round((done / total) * 100) : 0}%`} sub={<>{done} of {total}{overdue > 0 && <span className="text-bad"> · {overdue} overdue</span>}</>} pct={total ? (done / total) * 100 : 0} />
-        <Stat label="Budget" value={formatMoney(project.budgetCents)} sub="Planned spend for the project" />
+        <Stat
+          label="Budget committed"
+          value={formatMoney(budget.committed)}
+          sub={`of ${formatMoney(budget.budget)} · ${formatMoney(budget.remaining)} left`}
+          pct={budget.budget ? (budget.committed / budget.budget) * 100 : 0}
+          tone={budget.remaining < 0 ? "bad" : undefined}
+        />
         <Stat label="Cables tested" value={`${tested}/${cables.length}`} sub="Tested, labeled or complete" pct={cables.length ? (tested / cables.length) * 100 : 0} />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">

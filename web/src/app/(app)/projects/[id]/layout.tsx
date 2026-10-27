@@ -17,6 +17,7 @@ const PROJECT_TABS: [string, string][] = [
   ["tasks", "Tasks"],
   ["cabling", "Cabling"],
   ["layouts", "Room layouts"],
+  ["budget", "Budget"],
   ["activity", "Activity"],
 ];
 

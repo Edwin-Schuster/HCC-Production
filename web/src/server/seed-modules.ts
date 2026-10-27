@@ -5,6 +5,7 @@ import type { Actor } from "@/server/permissions";
 import { createProject } from "@/server/services/projects";
 import { createTask } from "@/server/services/tasks";
 import { createCable, createLayout, saveLayout } from "@/server/services/cabling";
+import { createBomItem, createPurchaseOrder, receivePurchaseOrder } from "@/server/services/purchasing";
 
 type Seeded = { actor: Actor; maria: { id: string }; james: { id: string } };
 
@@ -96,5 +97,29 @@ export async function seedModules(db: Executor, { actor, maria, james }: Seeded)
       { id: "r5", from: "g7", to: "g1", label: "SPK-001", color: "#d65e7a", cableId: spk.id },
     ],
   });
+  const B = (o: Parameters<typeof createBomItem>[3]) => createBomItem(db, actor, sanctuary.id, o);
+  const ptz = await B({ item: "PTZ camera 4K NDI", partNumber: "PTZ-4K-20X", vendor: "B&H", category: "Video", qty: 2, unitCost: 4295 });
+  await B({ item: "Line array element", partNumber: "LA-210", vendor: "Full Compass", category: "Audio", qty: 8, unitCost: 3150, status: "quoted" });
+  await B({ item: "Sub 18\"", partNumber: "SUB-18", vendor: "Full Compass", category: "Audio", qty: 2, unitCost: 2890, status: "quoted" });
+  const fiberBom = await B({ item: "12-strand SM fiber, plenum (ft)", partNumber: "OS2-12-PL", vendor: "Graybar", category: "Cabling", qty: 250, unitCost: 2.4 });
+  const stagebox = await B({ item: "Fiber stage box 32x16", partNumber: "SB-3216", vendor: "Sweetwater", category: "Audio", qty: 1, unitCost: 6499 });
+  const cat6 = await B({ item: "Cat6A shielded (1000ft box)", partNumber: "C6A-SH-1K", vendor: "Graybar", category: "Cabling", qty: 1, unitCost: 489 });
+
+  const po1 = await createPurchaseOrder(db, actor, sanctuary.id, { poNumber: `PO-${day(0).slice(0, 4)}-031`, vendor: "B&H", date: day(-22), status: "ordered", category: "Video", lines: [{ desc: "PTZ camera 4K NDI", qty: 2, unitCost: 4295, bomItemId: ptz.id }] });
+  await receivePurchaseOrder(db, actor, po1.id, { received: { [po1.lines[0].id]: 2 }, date: day(-15) });
+  await createPurchaseOrder(db, actor, sanctuary.id, { poNumber: `PO-${day(0).slice(0, 4)}-034`, vendor: "Sweetwater", date: day(-10), status: "ordered", category: "Audio", notes: "ETA 2 weeks", lines: [{ desc: "Fiber stage box 32x16", qty: 1, unitCost: 6499, bomItemId: stagebox.id }] });
+  const po3 = await createPurchaseOrder(db, actor, sanctuary.id, {
+    poNumber: `PO-${day(0).slice(0, 4)}-035`,
+    vendor: "Graybar",
+    date: day(-9),
+    status: "ordered",
+    category: "Cabling",
+    lines: [
+      { desc: "12-strand SM fiber (ft)", qty: 250, unitCost: 2.4, bomItemId: fiberBom.id },
+      { desc: "Cat6A shielded box", qty: 1, unitCost: 489, bomItemId: cat6.id },
+      { desc: "LC connectors (24pk)", qty: 2, unitCost: 145 },
+    ],
+  });
+  await receivePurchaseOrder(db, actor, po3.id, { received: { [po3.lines[0].id]: 250, [po3.lines[1].id]: 1 }, date: day(-4) });
   return { sanctuary, youth };
 }
