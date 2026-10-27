@@ -4,6 +4,14 @@ The new HCC Production app. It starts with the SOP system and the existing HCC s
 
 **Stack:** Next.js 16 (App Router), React 19, TypeScript (strict), Drizzle ORM on Postgres, BlockNote editor, Tailwind CSS 4, Zod, Playwright (PDF export and e2e tests), Vitest.
 
+## What it does
+
+- **Write:** a block editor with numbered steps (3.2.1), roles, times, expected results, warnings and branch rules ("if X, go to step N"); callouts, checklists, code, tables, images, video and embeds; shared **snippets**; five templates; autosave with local recovery.
+- **Import** from Word, Google Docs, HTML or Markdown with a preview. **Annotate screenshots** with arrows, boxes, numbered markers and text; passwords and account numbers are found by OCR and blurred automatically.
+- **Read:** a clean reading view with a table of contents, PDF export with page numbers and watermarks, a generated **flowchart**, full-text search that finds the matching step, and workspace **branding** (logo, colour, font, header and footer).
+- **Govern:** immutable versions with change summaries, **visual diffs** between versions, rollback, optional **approvals** per folder, review dates with reminders and overdue badges, and an audit log of every change to a published SOP.
+- **Use and improve:** **runs** (work through an SOP as a checklist with times and notes), step **feedback** ("unclear" / "wrong") routed to the owner, threaded **comments** with @mentions, and **suggested edits** the owner accepts into the draft. An inbox collects all of it.
+
 ## Quick start (development)
 
 Needs Node 22+.
@@ -56,6 +64,8 @@ Outside Docker: `npm run import:legacy-users -- /path/to/hcc.db`.
 | `DATA_DIR` | `./.data` | Where uploads (and embedded Postgres, if used) live. `/data` in Docker. |
 | `UPLOAD_DIR` | `$DATA_DIR/uploads` | Override the upload folder only. |
 | `MAX_UPLOAD_MB` | `25` | Largest image upload. |
+| `MAX_VIDEO_MB` | `250` | Largest video upload (MP4 or WebM). |
+| `DISABLE_SCHEDULER` | `false` | Set `true` to stop the hourly background job (review reminders) in this process, for example when running several replicas and one of them runs it. |
 | `INTERNAL_URL` | `http://127.0.0.1:$PORT` | Address the PDF renderer uses to load the print page. Only change it if the app can't reach itself on localhost. |
 | `CHROMIUM_PATH` | Playwright's Chromium | Use a different Chromium for PDF export. |
 | `MIGRATIONS_DIR` | `./drizzle` | Set in the Docker image. |
@@ -70,20 +80,20 @@ npm run typecheck
 npm run lint
 ```
 
-- Unit tests cover step numbering and renumbering, the editor's data conversion, permissions, and publishing (immutable versions, enforced by both the service layer and database triggers).
-- The e2e tests sign in, write and publish an SOP with nested steps, check autosave survives a reload, and cover search, version history, PDF export and signed-out access.
+- Unit tests cover step numbering, the editor's data conversion, permissions, publishing (immutable versions, enforced by both the service layer and database triggers), approvals, snippets, review reminders, feedback, comments and suggestions, runs, diffs and rollback, import, branding, and the secret detection used for auto-blur.
+- The e2e tests cover writing and publishing with nested steps, autosave across a reload, the approval flow with two people, comments, suggestions and feedback, runs, import from Word, search, version history, PDF export and signed-out access.
 
 ## Project layout
 
 ```
 web/
   drizzle/              SQL migrations (0001 adds the immutability triggers)
-  scripts/              one-off scripts (legacy user import)
+  scripts/              legacy user import; copies the OCR engine into public/vendor before dev and build
   src/
     app/                routes: (app) signed-in pages, (auth) sign-in, print/ PDF page, api/ route handlers
     blocks/             block schema (Zod), numbering and tree helpers, the shared renderer
     editor/             BlockNote editor, custom step and callout blocks, conversion to stored blocks
-    server/             auth, permissions, services (SOPs, folders, search, audit, files), PDF, seed
+    server/             auth, permissions, services (SOPs, approvals, comments, feedback, runs, snippets, search, audit, files…), import, PDF, scheduler, seed
     components/         UI primitives and app shell
   tests/unit, tests/e2e
 ```
@@ -91,7 +101,8 @@ web/
 How SOPs are stored:
 
 - Each SOP has versions. Published versions are read-only, and the only editable version is a single draft.
-- Content is stored as structured blocks, not HTML. A block's `key` stays the same from one version to the next, which is what future diffs and feedback will hang on.
+- Content is stored as structured blocks, not HTML. A block's `key` stays the same from one version to the next, so diffs, comments and feedback follow a step across versions.
+- Snippets are referenced, not copied: an SOP shows the snippet's latest version unless it's pinned. Saved snippet versions are immutable too.
 - Every change to a published SOP is written to `audit_events`.
 
 ## Fonts
