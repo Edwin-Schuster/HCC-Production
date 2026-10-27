@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { AtSign, Bell, CalendarClock, CheckCircle2, Flag, MessageSquare, PencilLine, Send, ShieldCheck } from "lucide-react";
+import { AtSign, Bell, CalendarClock, CheckCircle2, Flag, GraduationCap, MessageSquare, PencilLine, Send, ShieldCheck } from "lucide-react";
 import { requireRole } from "@/server/context";
 import { getDb } from "@/db";
 import { listNotifications } from "@/server/services/notifications";
@@ -25,6 +25,8 @@ const ICON: Record<string, typeof Bell> = {
   suggestion: PencilLine,
   suggestion_resolved: PencilLine,
   published: Send,
+  training_assigned: GraduationCap,
+  training_completed: GraduationCap,
 };
 
 export default function InboxPage() {

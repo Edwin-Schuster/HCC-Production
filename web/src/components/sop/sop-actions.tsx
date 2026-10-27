@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArchiveRestore, CalendarCheck, ChevronDown, FileDown, History, MoreHorizontal, Pencil, Settings2, Share2, Trash2, Workflow } from "lucide-react";
+import { Archive, ArchiveRestore, CalendarCheck, ChevronDown, FileDown, History, MoreHorizontal, Pencil, GraduationCap, Settings2, Share2, Trash2, Workflow } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -85,6 +85,13 @@ export function SopActions(p: Props) {
             <MenuItem onSelect={() => setDetails(true)}>
               <Settings2 /> Owner, folder, tags & review…
             </MenuItem>
+            {p.published && !p.retired && (
+              <MenuItem asChild>
+                <Link href={`/sops/${p.sopId}/training`}>
+                  <GraduationCap /> Training & quiz
+                </Link>
+              </MenuItem>
+            )}
             {p.published && !p.retired && (
               <MenuItem onSelect={() => setSharing(true)}>
                 <Share2 /> Share outside the team…

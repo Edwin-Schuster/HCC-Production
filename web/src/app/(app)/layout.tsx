@@ -5,6 +5,7 @@ import { atLeast } from "@/server/permissions";
 import { listFolders } from "@/server/services/folders";
 import { listSops } from "@/server/services/sops";
 import { unreadCount } from "@/server/services/notifications";
+import { openTrainingCount } from "@/server/services/training";
 import { FolderTree, NavIcons, NavLink } from "@/components/shell/nav";
 import { PaletteButton, ShellFrame } from "@/components/shell/frame";
 import { CommandPalette } from "@/components/shell/palette";
@@ -39,7 +40,7 @@ function Nav() {
 
 async function NavContent() {
   const { db, actor } = await getContext();
-  const [folders, sops, unread] = await Promise.all([listFolders(db, actor), listSops(db, actor), unreadCount(db, actor)]);
+  const [folders, sops, unread, training] = await Promise.all([listFolders(db, actor), listSops(db, actor), unreadCount(db, actor), openTrainingCount(db, actor)]);
   const counts = new Map<string, number>();
   for (const s of sops) counts.set(s.folderId, (counts.get(s.folderId) ?? 0) + 1);
   const reviewsDue = atLeast(actor, "editor") ? sops.filter((s) => s.reviewState === "overdue" || s.reviewState === "due").length : 0;
@@ -59,6 +60,9 @@ async function NavContent() {
             </NavLink>
             <NavLink href="/runs" icon={NavIcons.runs}>
               Runs
+            </NavLink>
+            <NavLink href="/training" icon={NavIcons.training}>
+              <Counted count={training}>Training</Counted>
             </NavLink>
           </>
         )}

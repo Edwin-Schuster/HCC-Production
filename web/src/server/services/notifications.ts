@@ -16,7 +16,8 @@ export type NotificationKind =
   | "suggestion"
   | "suggestion_resolved"
   | "published"
-  | "training_assigned";
+  | "training_assigned"
+  | "training_completed";
 
 /**
  * In-app notifications. The person who caused an event is never notified about it.
