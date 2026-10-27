@@ -194,7 +194,7 @@ async function Reader({ params, searchParams }: { params: PageProps<"/sops/[id]"
                   retired={sop.status === "retired"}
                   published={Boolean(sop.currentVersionId)}
                   isDraftView={version.isDraft}
-                  meta={{ ownerId: sop.ownerId, folderId: sop.folderId, tags: sop.tags, reviewIntervalDays: sop.reviewIntervalDays }}
+                  meta={{ ownerId: sop.ownerId, folderId: sop.folderId, tags: sop.tags, reviewIntervalDays: sop.reviewIntervalDays, urlPatterns: sop.urlPatterns }}
                   members={members.map((m) => ({ id: m.id, name: m.name }))}
                   folders={folders.map((f) => ({ id: f.id, label: `${"  ".repeat(f.depth)}${f.name}` }))}
                 />

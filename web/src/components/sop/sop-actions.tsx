@@ -8,7 +8,7 @@ import { deleteSopAction, setRetiredAction, updateMetaAction } from "@/app/actio
 import { ThemeToggle } from "@/components/theme";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Field, Input, Select } from "@/components/ui/field";
+import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { MarkReviewedDialog } from "./mark-reviewed";
 import { ShareDialog } from "./share-dialog";
@@ -22,7 +22,7 @@ type Props = {
   retired: boolean;
   published: boolean;
   isDraftView: boolean;
-  meta: { ownerId: string; folderId: string; tags: string[]; reviewIntervalDays: number };
+  meta: { ownerId: string; folderId: string; tags: string[]; reviewIntervalDays: number; urlPatterns: string[] };
   members: { id: string; name: string }[];
   folders: { id: string; label: string }[];
 };
@@ -135,6 +135,7 @@ export function SopActions(p: Props) {
                   folderId: String(fd.get("folder")),
                   tags: String(fd.get("tags") ?? "").split(",").map((t) => t.trim()).filter(Boolean),
                   reviewIntervalDays: Number(fd.get("interval")),
+                  urlPatterns: String(fd.get("pages") ?? "").split(/[\n,]/).map((t) => t.trim()).filter(Boolean),
                 });
                 if (res.ok) {
                   toast("Details saved");
@@ -163,6 +164,9 @@ export function SopActions(p: Props) {
             </Field>
             <Field label="Tags" htmlFor="tags" hint="Comma separated">
               <Input id="tags" name="tags" defaultValue={p.meta.tags.join(", ")} />
+            </Field>
+            <Field label="Web pages" htmlFor="pages" hint="The browser extension suggests this SOP on these pages. One per line, * for anything, e.g. studio.youtube.com/*">
+              <Textarea id="pages" name="pages" rows={2} defaultValue={p.meta.urlPatterns.join("\n")} />
             </Field>
             <Field label="Review every (days)" htmlFor="interval" hint="The next review date is counted from the last publish.">
               <Input id="interval" name="interval" type="number" min={7} max={3650} defaultValue={p.meta.reviewIntervalDays} />

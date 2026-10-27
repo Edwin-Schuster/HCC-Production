@@ -19,4 +19,19 @@ export function startScheduler(db: DB) {
   };
   setTimeout(hourly, 30_000).unref();
   setInterval(hourly, 60 * 60_000).unref();
+
+  // Webhook deliveries: every 20 seconds, so receivers hear about changes quickly.
+  let sending = false;
+  setInterval(async () => {
+    if (sending) return;
+    sending = true;
+    try {
+      const { deliverDue } = await import("@/server/services/webhooks");
+      await deliverDue(db);
+    } catch (e) {
+      console.error("Webhook delivery failed:", e);
+    } finally {
+      sending = false;
+    }
+  }, 20_000).unref();
 }

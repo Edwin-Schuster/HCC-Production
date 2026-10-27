@@ -7,6 +7,7 @@ import { walk } from "@/blocks/tree";
 import { forbidden, invalid, notFound } from "@/server/errors";
 import { atLeast, canEditSop, type Actor } from "@/server/permissions";
 import { getSopDocument, loadSop } from "./sops";
+import { emit } from "./webhooks";
 
 /** Blocks a run can tick off: every step (at any depth) and every checklist item. */
 export function checkable(tree: BlockNode[]): BlockNode[] {
@@ -126,7 +127,12 @@ export async function finishRun(db: Executor, actor: Actor, runId: string, statu
         .onConflictDoUpdate({ target: [runSteps.runId, runSteps.blockId], set: { skipped: true } });
     }
   }
-  await db.update(runs).set({ status, completedAt: new Date() }).where(eq(runs.id, run.id));
+  const completedAt = new Date();
+  await db.update(runs).set({ status, completedAt }).where(eq(runs.id, run.id));
+  if (status === "completed") {
+    const skipped = (await db.select({ id: runSteps.blockId }).from(runSteps).where(and(eq(runSteps.runId, run.id), eq(runSteps.skipped, true)))).length;
+    await emit(db, actor.workspaceId, "run.completed", { id: run.id, sopId: run.sopId, label: run.label, startedAt: run.startedAt.toISOString(), completedAt: completedAt.toISOString(), skippedSteps: skipped });
+  }
 }
 
 export type RunSummary = {

@@ -7,6 +7,7 @@ import type { BlockNode } from "@/blocks/schema";
 import { forbidden, invalid, notFound } from "@/server/errors";
 import { atLeast, canEditSop, canReadDrafts, type Actor } from "@/server/permissions";
 import { notify } from "./notifications";
+import { emit } from "./webhooks";
 import { getSopDocument, loadSop } from "./sops";
 
 /** "Step 3.2: Load the show file", used to label feedback and comments. */
@@ -39,6 +40,7 @@ export async function submitFeedback(db: Executor, actor: Actor, sopId: string, 
     .insert(feedback)
     .values({ workspaceId: actor.workspaceId, sopId, versionId: doc.version.id, blockKey: data.blockKey, blockLabel: label, userId: actor.userId, type: data.type, message: data.message })
     .returning();
+  await emit(db, actor.workspaceId, "feedback.created", { id: row.id, sopId, documentCode: doc.sop.documentCode, step: label, type: data.type, message: data.message });
   const what = data.type === "unclear" ? "is unclear" : data.type === "wrong" ? "is wrong" : "needs attention";
   await notify(db, {
     workspaceId: actor.workspaceId,

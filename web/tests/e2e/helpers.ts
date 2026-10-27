@@ -7,14 +7,15 @@ export async function signIn(page: Page, user = ADMIN) {
   // On a cold dev server the form can render before it hydrates, and a click then just reloads the page.
   // Retry the submit until it signs in.
   for (let attempt = 0; ; attempt++) {
-    await page.fill("#username", user.username);
-    await page.fill("#password", user.password);
-    await page.click("button[type=submit]");
     try {
+      await page.fill("#username", user.username, { timeout: 15_000 });
+      await page.fill("#password", user.password, { timeout: 15_000 });
+      await page.click("button[type=submit]", { timeout: 15_000 });
       await page.waitForURL("**/sops**", { timeout: 15_000 });
       return;
     } catch (e) {
       if (attempt >= 4) throw e;
+      if (!page.url().includes("/login")) await page.goto("/login");
     }
   }
 }

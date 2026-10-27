@@ -18,6 +18,7 @@ import {
   type Visibility,
 } from "@/server/permissions";
 import { audit } from "./audit";
+import { emit } from "./webhooks";
 import { reviewState, type ReviewState } from "@/lib/review";
 import { requireFolder } from "./folders";
 import { snippetResolver } from "./snippets";
@@ -68,6 +69,7 @@ export const UpdateMetaInput = z.object({
   folderId: z.string().max(64).optional(),
   tags: Tags.optional(),
   reviewIntervalDays: z.number().int().min(7).max(3_650).optional(),
+  urlPatterns: z.array(z.string().trim().min(3).max(300)).max(20).optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -153,6 +155,8 @@ export type SopSummary = {
   summary: string;
   status: SopStatus;
   tags: string[];
+  /** Web pages this SOP is about, for the browser extension. */
+  urlPatterns: string[];
   folderId: string;
   folderName: string;
   ownerId: string;
@@ -206,6 +210,7 @@ export async function listSops(db: Executor, actor: Actor, input: z.input<typeof
       summary: r.sop.summary,
       status: r.sop.status,
       tags: r.sop.tags,
+      urlPatterns: r.sop.urlPatterns,
       folderId: r.sop.folderId,
       folderName: r.folderName,
       ownerId: r.sop.ownerId,
@@ -276,6 +281,7 @@ export async function getSopDocument(db: Executor, actor: Actor, sopId: string, 
       summary: sop.summary,
       status: sop.status,
       tags: sop.tags,
+      urlPatterns: sop.urlPatterns,
       folderId: sop.folderId,
       folderName,
       ownerId: sop.ownerId,
@@ -372,6 +378,7 @@ export async function createSop(db: Executor, actor: Actor, input: z.input<typeo
     const [draft] = await tx.insert(sopVersions).values({ sopId: sop.id, title: data.title, summary: data.summary, updatedBy: actor.userId }).returning();
     await writeBlocks(tx, draft.id, tree);
     await audit(tx, actor, "sop.created", { type: "sop", id: sop.id }, { documentCode, template: data.templateKey ?? null });
+    await emit(tx, actor.workspaceId, "sop.created", { id: sop.id, documentCode, title: data.title, folderId: folder.id });
     return { id: sop.id, documentCode, draftVersionId: draft.id };
   });
 }
@@ -488,6 +495,7 @@ export async function publishDraft(db: Executor, actor: Actor, sopId: string, in
       })
       .where(eq(sops.id, sop.id));
     await audit(tx, actor, "sop.published", { type: "sop", id: sop.id }, { versionId: draft.id, versionNumber: number, changeSummary, approvedBy });
+    await emit(tx, actor.workspaceId, "sop.published", { id: sop.id, documentCode: sop.documentCode, title: draft.title, versionNumber: number, changeSummary, publishedBy: actor.name });
     await notify(tx, {
       workspaceId: actor.workspaceId,
       userIds: [sop.ownerId, draft.reviewRequestedBy, ...approvedBy.map((a) => a.userId)],
@@ -528,7 +536,7 @@ export async function updateSopMeta(db: Executor, actor: Actor, sopId: string, i
     const current = sop.currentVersionId ? (await tx.select().from(sopVersions).where(eq(sopVersions.id, sop.currentVersionId)).limit(1))[0] : undefined;
     const nextReviewAt = current?.publishedAt && data.reviewIntervalDays ? new Date(current.publishedAt.getTime() + interval * 864e5) : sop.nextReviewAt;
     const changes = Object.fromEntries(
-      Object.entries({ ownerId: data.ownerId, folderId: data.folderId, tags: data.tags, reviewIntervalDays: data.reviewIntervalDays }).filter(
+      Object.entries({ ownerId: data.ownerId, folderId: data.folderId, tags: data.tags, reviewIntervalDays: data.reviewIntervalDays, urlPatterns: data.urlPatterns }).filter(
         ([k, v]) => v !== undefined && JSON.stringify(v) !== JSON.stringify(sop[k as keyof SopRow]),
       ),
     );
@@ -548,6 +556,7 @@ export async function setRetired(db: Executor, actor: Actor, sopId: string, reti
     const status = retired ? "retired" : sop.currentVersionId ? "published" : "draft";
     await tx.update(sops).set({ status, updatedAt: new Date() }).where(eq(sops.id, sop.id));
     await audit(tx, actor, retired ? "sop.retired" : "sop.restored", { type: "sop", id: sop.id });
+    await emit(tx, actor.workspaceId, retired ? "sop.retired" : "sop.restored", { id: sop.id, documentCode: sop.documentCode, title: sop.title });
   });
 }
 
