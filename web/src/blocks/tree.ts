@@ -32,6 +32,9 @@ export function numberSteps(nodes: BlockNode[]): Map<string, string> {
   return out;
 }
 
+/** Step text fields allow **bold** and `code`; search should see the words, not the marks. */
+const stripMarks = (s: string) => s.replace(/\*\*(.+?)\*\*/g, "$1").replace(/`([^`]+)`/g, "$1");
+
 /** Plain text of one block (not its children), used for full-text search and outlines. */
 export function blockText(node: BlockNode): string {
   switch (node.type) {
@@ -41,7 +44,7 @@ export function blockText(node: BlockNode): string {
     case "callout":
       return plain(node.content.text);
     case "step":
-      return [plain(node.content.title), node.content.description, node.content.expectedResult, node.content.warning].filter(Boolean).join("\n");
+      return [plain(node.content.title), ...[node.content.description, node.content.expectedResult, node.content.warning].map(stripMarks)].filter(Boolean).join("\n");
     case "code":
       return node.content.code;
     case "table":
