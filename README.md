@@ -2,6 +2,8 @@
 
 The production team app for Hope Christian Church. It covers SOPs, the team roster, project management, budgets, contractors and gear, and it is built mobile first for use on site.
 
+> **Moving to a new app.** The app is being rebuilt in Next.js in [`web/`](web/README.md), one module at a time, starting with SOPs and sign-in. Until a module is ported, use it here. The new app can import this app's users with their passwords.
+
 It is a single Docker container with **no npm dependencies**. It uses Node 22, its built-in SQLite, and plain HTML/CSS/JS.
 
 ## Features
