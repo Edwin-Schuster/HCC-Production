@@ -250,6 +250,7 @@ CREATE TABLE "work_comments" (
 );
 --> statement-breakpoint
 ALTER TABLE "team_roles" ADD COLUMN "description" text DEFAULT '' NOT NULL;--> statement-breakpoint
+ALTER TABLE "team_roles" ADD COLUMN "color" text DEFAULT '#a3a3a3' NOT NULL;--> statement-breakpoint
 ALTER TABLE "users" ADD COLUMN "ntfy_topic" text;--> statement-breakpoint
 ALTER TABLE "workspaces" ADD COLUMN "settings" jsonb DEFAULT '{}'::jsonb NOT NULL;--> statement-breakpoint
 ALTER TABLE "activity" ADD CONSTRAINT "activity_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

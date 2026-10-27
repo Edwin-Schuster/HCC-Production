@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { Executor } from "@/db";
-import { folders, runs, sops, sopViews, teamRoles, users, workspaceMembers } from "@/db/schema";
+import { folders, people, runs, sops, sopViews, teamRoles, users, workspaceMembers } from "@/db/schema";
 import { callout, check, code, divider, h, image, p, snippetRef, step, table } from "@/blocks/build";
 import type { Actor } from "@/server/permissions";
 import { createSop, publishDraft, saveDraft, getOrCreateDraft } from "@/server/services/sops";
@@ -14,7 +14,7 @@ const RACK_SVG = "/seed/rack-diagram.svg";
 export async function seedDemoContent(db: Executor, workspaceId: string) {
   const roleRows = await db
     .insert(teamRoles)
-    .values(DEFAULT_TEAM_ROLES.map((name) => ({ workspaceId, name })))
+    .values(DEFAULT_TEAM_ROLES.map((r) => ({ workspaceId, ...r })))
     .returning();
   const role = (name: string) => roleRows.find((r) => r.name.startsWith(name))!.id;
 
@@ -225,5 +225,19 @@ export async function seedDemoContent(db: Executor, workspaceId: string) {
     step("Update and test", { minutes: 30, expected: "Full signal test passes." }, [step("Apply the update"), step("Run a full signal test"), step("Note results in a task comment")]),
     divider(),
     p("Label every device with its asset tag, IP address and firmware version."),
+  ]);
+
+  // 6. The roster: who is on the team and where they are.
+  const ago = (days: number, hour = 10) => {
+    const d = new Date(Date.now() - days * 864e5);
+    d.setHours(hour, 0, 0, 0);
+    return d;
+  };
+  await db.insert(people).values([
+    { workspaceId, name: "Edwin Schuster", roleIds: [role("Technical"), role("Audio")], email: "ewschuster03@gmail.com", status: "on_site", statusNote: "In the booth for Sunday prep", lastCheckIn: ago(0, 8), userId: admin.id },
+    { workspaceId, name: "Maria Lopez", roleIds: [role("Audio")], email: "maria@example.org", phone: "(555) 201-4410", status: "serving", statusNote: "FOH 9am + 11am", lastCheckIn: ago(1, 19), userId: maria.id },
+    { workspaceId, name: "James Carter", roleIds: [role("Video"), role("Camera")], email: "james@example.org", phone: "(555) 201-7731", status: "available", lastCheckIn: ago(3, 12), userId: james.id },
+    { workspaceId, name: "Sarah Kim", roleIds: [role("ProPresenter"), role("Stream")], email: "sarah@example.org", phone: "(555) 201-0092", status: "away", statusNote: "Out of town until next week", lastCheckIn: ago(9, 9) },
+    { workspaceId, name: "Dave Morris", roleIds: [role("Lighting")], email: "dave@example.org", phone: "(555) 201-5567", status: "available", lastCheckIn: ago(16, 18) },
   ]);
 }

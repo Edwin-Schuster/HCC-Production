@@ -45,9 +45,17 @@ export async function bootstrap(db: DB, opts: { seedDemo?: boolean; quiet?: bool
   }
   const [{ n: roleCount }] = await db.select({ n: sql<number>`count(*)::int` }).from(teamRoles).where(eq(teamRoles.workspaceId, ws.id));
   if (!roleCount) {
-    await db.insert(teamRoles).values(DEFAULT_TEAM_ROLES.map((name) => ({ workspaceId: ws.id, name })));
+    await db.insert(teamRoles).values(DEFAULT_TEAM_ROLES.map((r) => ({ workspaceId: ws.id, ...r })));
   }
   return ws;
 }
 
-export const DEFAULT_TEAM_ROLES = ["Technical Director", "Audio Engineer (A1)", "Video Director", "Camera Operator", "ProPresenter / Lyrics", "Lighting", "Stream Tech"];
+export const DEFAULT_TEAM_ROLES = [
+  { name: "Technical Director", color: "#d4d4d4", description: "Owns the production systems, schedules volunteers and signs off on changes." },
+  { name: "Audio Engineer (A1)", color: "#5e8bd6", description: "Runs FOH mix on the console, line checks, and the broadcast mix." },
+  { name: "Video Director", color: "#b072d1", description: "Calls cameras and switches the livestream." },
+  { name: "Camera Operator", color: "#d68a5e", description: "Runs a manned camera position or the PTZ joystick." },
+  { name: "ProPresenter / Lyrics", color: "#5eb88a", description: "Runs slides, lyrics, lower thirds and announcements." },
+  { name: "Lighting", color: "#d6c25e", description: "Runs the lighting console and pre-service looks." },
+  { name: "Stream Tech", color: "#d65e7a", description: "Monitors the encoder, chat and stream health." },
+];

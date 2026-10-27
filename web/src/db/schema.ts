@@ -152,6 +152,7 @@ export const teamRoles = pgTable("team_roles", {
     .references(() => workspaces.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   description: text("description").notNull().default(""),
+  color: text("color").notNull().default("#a3a3a3"),
   createdAt: createdAt(),
 });
 

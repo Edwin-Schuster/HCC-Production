@@ -58,6 +58,9 @@ async function NavContent() {
             <NavLink href="/inbox" icon={NavIcons.inbox}>
               <Counted count={unread}>Inbox</Counted>
             </NavLink>
+            <NavLink href="/roster" icon={NavIcons.roster}>
+              Roster
+            </NavLink>
             <NavLink href="/runs" icon={NavIcons.runs}>
               Runs
             </NavLink>
