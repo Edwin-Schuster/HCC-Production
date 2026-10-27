@@ -8,6 +8,7 @@ import { getProject } from "@/server/services/projects";
 import { assignableMembers, listTasks } from "@/server/services/tasks";
 import { listCables } from "@/server/services/cabling";
 import { projectBudget } from "@/server/services/purchasing";
+import { listPunch } from "@/server/services/contractors";
 import { CABLE_VERIFIED } from "@/lib/cabling";
 import { Markdown } from "@/components/markdown";
 import { Button } from "@/components/ui/button";
@@ -52,7 +53,7 @@ async function Overview({ params }: { params: PageProps<"/projects/[id]">["param
       </div>
     );
 
-  const [tasks, members, history, cables, budget] = await Promise.all([listTasks(db, actor, id), assignableMembers(db, actor), listActivity(db, actor, { projectId: id }, 8), listCables(db, actor, id), projectBudget(db, actor, id)]);
+  const [tasks, members, history, cables, budget, punch] = await Promise.all([listTasks(db, actor, id), assignableMembers(db, actor), listActivity(db, actor, { projectId: id }, 8), listCables(db, actor, id), projectBudget(db, actor, id), listPunch(db, actor, { projectId: id, open: true })]);
   const tested = cables.filter((c) => CABLE_VERIFIED.includes(c.status)).length;
   const t = today();
   const { total, done, overdue } = project.progress;
@@ -74,6 +75,7 @@ async function Overview({ params }: { params: PageProps<"/projects/[id]">["param
           pct={budget.budget ? (budget.committed / budget.budget) * 100 : 0}
           tone={budget.remaining < 0 ? "bad" : undefined}
         />
+        <Stat label="Open punch items" value={punch.length} sub={punch.length ? `${punch.filter((x) => x.due && x.due < t).length} past due` : "Nothing outstanding"} />
         <Stat label="Cables tested" value={`${tested}/${cables.length}`} sub="Tested, labeled or complete" pct={cables.length ? (tested / cables.length) * 100 : 0} />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">

@@ -6,6 +6,7 @@ import { createProject } from "@/server/services/projects";
 import { createTask } from "@/server/services/tasks";
 import { createCable, createLayout, saveLayout } from "@/server/services/cabling";
 import { createBomItem, createPurchaseOrder, receivePurchaseOrder } from "@/server/services/purchasing";
+import { createContractor, saveAccess, saveInvoice, savePunch, saveScope } from "@/server/services/contractors";
 
 type Seeded = { actor: Actor; maria: { id: string }; james: { id: string } };
 
@@ -121,5 +122,23 @@ export async function seedModules(db: Executor, { actor, maria, james }: Seeded)
     ],
   });
   await receivePurchaseOrder(db, actor, po3.id, { received: { [po3.lines[0].id]: 250, [po3.lines[1].id]: 1 }, date: day(-4) });
+  const spark = await createContractor(db, actor, { company: "Bright Spark Electric", contact: "Tom Reyes", trade: "Electrical", phone: "(555) 300-1188", email: "tom@brightspark.example", insuranceExpires: day(120), rate: "$95/hr", notes: "Licensed, did the 2024 lighting circuits." });
+  const rig = await createContractor(db, actor, { company: "Summit Rigging", contact: "Alicia Grant", trade: "Rigging / Install", phone: "(555) 300-4421", email: "alicia@summitrig.example", insuranceExpires: day(20), rate: "Fixed bid" });
+  await saveScope(db, actor, {
+    contractorId: rig.id,
+    projectId: sanctuary.id,
+    title: "PA removal and line array hang",
+    status: "signed",
+    value: 12500,
+    start: day(20),
+    end: day(30),
+    body: "## Scope\n- Remove existing center cluster and dispose\n- Install new rigging points per engineer drawing\n- Fly and aim 8-element array per prediction\n\n## Exclusions\n- Electrical work\n- Patching and repair of ceiling tiles",
+  });
+  await saveScope(db, actor, { contractorId: spark.id, projectId: sanctuary.id, title: "Dedicated circuits for amp rack", status: "sent", value: 3400, start: day(10), end: day(12), body: "- Two 20A dedicated circuits to the amp rack\n- Isolated ground" });
+  await saveAccess(db, actor, { contractorId: rig.id, who: "Summit Rigging crew (4)", from: day(20), to: day(30), hours: "7:00 AM – 5:00 PM", areas: "Sanctuary, catwalk, loading dock", badge: "Key #12, Badge T-4", approvedBy: "Edwin Schuster", notes: "No work on Sunday. Lift stays in the dock overnight." });
+  await saveAccess(db, actor, { contractorId: spark.id, who: "Tom Reyes", from: day(10), to: day(12), hours: "8:00 AM – 4:00 PM", areas: "Booth, electrical room B", badge: "Key #7", approvedBy: "Edwin Schuster" });
+  await savePunch(db, actor, { projectId: sanctuary.id, contractorId: rig.id, location: "Balcony rail", description: "Lift access needed for PTZ-2 bracket", due: day(5) });
+  await savePunch(db, actor, { projectId: sanctuary.id, contractorId: spark.id, location: "Booth", description: "Cover plate missing on floor box FB-3", status: "ready_for_review", due: day(2) });
+  await saveInvoice(db, actor, { contractorId: rig.id, projectId: sanctuary.id, number: "SR-1182", date: day(-5), dueDate: day(25), amount: 6250, status: "approved", notes: "50% deposit" });
   return { sanctuary, youth };
 }
