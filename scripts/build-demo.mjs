@@ -14,7 +14,7 @@ const assets = { 'hcc-mark.png': dataUri('hcc-mark.png'), 'hcc-logo.png': dataUr
 
 const html = `<title>HCC Production</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..600&family=JetBrains+Mono:wght@400&display=swap">
 <style>
 ${read('app.css').replace(/url\("fonts\/[^"]+"\) format\("[^"]+"\), /g, '')}
 </style>

@@ -18,7 +18,7 @@ function docsNav(activeId) {
   const open = S.ui.docsNav;
   return `<aside class="docs-nav ${open ? 'open' : ''}">
     <button class="docs-search" data-click="openSearch">${icon('search')}<span>Search SOPs</span><kbd>⌘K</kbd></button>
-    ${isEditor() ? `<button class="btn btn-sm btn-primary full-w" data-click="newSop">${icon('plus')} New SOP</button>` : ''}
+    ${isEditor() ? `<button class="btn btn-sm full-w" data-click="newSop">${icon('plus')} New SOP</button>` : ''}
     <nav>${sopsByGroup().map(([g, ps]) => `<div class="docs-group"><div class="docs-group-title">${esc(g)}</div>${ps.map((p) => `<button class="docs-link ${p.id === activeId ? 'on' : ''}" data-click="go" data-to="/sops/${p.id}"><span class="docs-ico">${esc(p.icon || '•')}</span><span>${esc(p.title)}</span>${!p.public ? '<span class="lock" title="Team only">team</span>' : ''}</button>`).join('')}</div>`).join('')}</nav>
   </aside>`;
 }
