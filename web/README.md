@@ -11,6 +11,9 @@ The new HCC Production app. It starts with the SOP system and the existing HCC s
 - **Read:** a clean reading view with a table of contents, PDF export with page numbers and watermarks, a generated **flowchart**, full-text search that finds the matching step, and workspace **branding** (logo, colour, font, header and footer).
 - **Govern:** immutable versions with change summaries, **visual diffs** between versions, rollback, optional **approvals** per folder, review dates with reminders and overdue badges, and an audit log of every change to a published SOP.
 - **Use and improve:** **runs** (work through an SOP as a checklist with times and notes), step **feedback** ("unclear" / "wrong") routed to the owner, threaded **comments** with @mentions, and **suggested edits** the owner accepts into the draft. An inbox collects all of it.
+- **Train:** assign SOPs to people with due dates; optional multiple-choice **quizzes** graded on the server; the version each person trained on is recorded.
+- **Measure:** **analytics** for reads, most-skipped steps, run times against estimates, and feedback; a plain-language **audit log**.
+- **Share and connect:** **share links** (optional password and expiry) for people outside the team; a **REST API** with personal API keys; signed **webhooks**; an **embed** script for other websites; and a **browser extension** (in [`../extension`](../extension/README.md)) that shows the SOPs for the page you're on and records clicks into a new SOP with screenshots.
 
 ## Quick start (development)
 
@@ -70,6 +73,14 @@ Outside Docker: `npm run import:legacy-users -- /path/to/hcc.db`.
 | `CHROMIUM_PATH` | Playwright's Chromium | Use a different Chromium for PDF export. |
 | `MIGRATIONS_DIR` | `./drizzle` | Set in the Docker image. |
 | `NEXT_PUBLIC_APP_TIMEZONE` | server time zone | Time zone for dates rendered on the server and in PDFs, such as `America/Chicago`. Applied at build time. |
+
+## API, webhooks and embeds
+
+Admins find the API reference, every API key, webhooks and the embed snippet under **Integrations** (user menu). People create their own API keys on their **Profile** page.
+
+- Authenticate with `Authorization: Bearer hcc_…`. A key acts as its owner and never has more access than they do (a read-only key can't change anything).
+- Webhook bodies are signed: `X-HCC-Signature: sha256=<HMAC-SHA256 of the raw body with the webhook's secret>`. Deliveries are retried for about 15 hours.
+- Embeds: `<div data-hcc-sop="ID"></div><script src="https://your-host/embed.js" async></script>` for public SOPs, or `data-hcc-share="CODE"` for a share link.
 
 ## Tests
 
