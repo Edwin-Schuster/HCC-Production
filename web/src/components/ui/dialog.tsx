@@ -9,7 +9,7 @@ export const Dialog = D.Root;
 export const DialogTrigger = D.Trigger;
 export const DialogClose = D.Close;
 
-export function DialogContent({ className, title, description, children, wide, ...props }: ComponentProps<typeof D.Content> & { title: ReactNode; description?: ReactNode; wide?: boolean }) {
+export function DialogContent({ className, title, description, children, wide, ...props }: Omit<ComponentProps<typeof D.Content>, "title"> & { title: ReactNode; description?: ReactNode; wide?: boolean }) {
   return (
     <D.Portal>
       <D.Overlay className="fixed inset-0 z-50 bg-black/60 data-[state=open]:animate-in" />
@@ -38,7 +38,7 @@ export function DialogContent({ className, title, description, children, wide, .
 }
 
 /** A panel that slides in from the right (a bottom sheet on phones). Non-modal, so the page stays readable. */
-export function SheetContent({ className, title, description, children, actions, ...props }: ComponentProps<typeof D.Content> & { title: ReactNode; description?: ReactNode; actions?: ReactNode }) {
+export function SheetContent({ className, title, description, children, actions, ...props }: Omit<ComponentProps<typeof D.Content>, "title"> & { title: ReactNode; description?: ReactNode; actions?: ReactNode }) {
   return (
     <D.Portal>
       <D.Content

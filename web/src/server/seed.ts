@@ -7,6 +7,7 @@ import { createSop, publishDraft, saveDraft, getOrCreateDraft } from "@/server/s
 import { createSnippet } from "@/server/services/snippets";
 import { checkStep, checkable, finishRun, getRun, startRun } from "@/server/services/runs";
 import { DEFAULT_TEAM_ROLES } from "./bootstrap";
+import { seedModules } from "./seed-modules";
 
 const RACK_SVG = "/seed/rack-diagram.svg";
 
@@ -240,4 +241,7 @@ export async function seedDemoContent(db: Executor, workspaceId: string) {
     { workspaceId, name: "Sarah Kim", roleIds: [role("ProPresenter"), role("Stream")], email: "sarah@example.org", phone: "(555) 201-0092", status: "away", statusNote: "Out of town until next week", lastCheckIn: ago(9, 9) },
     { workspaceId, name: "Dave Morris", roleIds: [role("Lighting")], email: "dave@example.org", phone: "(555) 201-5567", status: "available", lastCheckIn: ago(16, 18) },
   ]);
+
+  // 7. Projects, tasks and the rest of the production modules.
+  await seedModules(db, { actor, maria, james });
 }

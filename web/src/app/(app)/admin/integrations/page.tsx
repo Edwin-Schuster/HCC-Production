@@ -6,7 +6,10 @@ import { listApiKeys } from "@/server/services/apikeys";
 import { listWebhooks, WEBHOOK_EVENTS } from "@/server/services/webhooks";
 import { Page, PageHeader } from "@/components/page";
 import { ApiKeys } from "@/components/api-keys";
+import { calendarFeedUrl } from "@/server/services/calendar";
+import { getSettings } from "@/server/services/settings";
 import { Webhooks } from "./webhooks";
+import { CalendarFeed, WorkspaceSettingsForm } from "./workspace-settings";
 
 export const metadata: Metadata = { title: "Integrations" };
 
@@ -26,7 +29,7 @@ const ENDPOINTS: [string, string, string][] = [
 export default function IntegrationsPage() {
   return (
     <Page>
-      <PageHeader title="Integrations" subtitle="The REST API, webhooks and embedding SOPs in other sites." />
+      <PageHeader title="Integrations" subtitle="Reminders, the calendar feed, the REST API, webhooks and embedding SOPs in other sites." />
       <Suspense fallback={<div className="h-96" />}>
         <Content />
       </Suspense>
@@ -37,9 +40,21 @@ export default function IntegrationsPage() {
 async function Content() {
   const actor = await requireRole("admin", "/admin/integrations");
   const db = await getDb();
-  const [keys, hooks] = await Promise.all([listApiKeys(db, actor), listWebhooks(db, actor)]);
+  const [keys, hooks, settings, feed] = await Promise.all([listApiKeys(db, actor), listWebhooks(db, actor), getSettings(db, actor), calendarFeedUrl(db, actor)]);
   return (
     <div className="grid gap-10">
+      <section>
+        <h2 className="text-[15px] text-fg-hi">Reminders and notifications</h2>
+        <p className="mb-3 mt-1 text-[13px] text-muted">How far ahead people hear about their tasks, and where phone notifications come from.</p>
+        <WorkspaceSettingsForm settings={settings} />
+      </section>
+
+      <section>
+        <h2 className="text-[15px] text-fg-hi">Calendar feed</h2>
+        <p className="mb-3 mt-1 text-[13px] text-muted">An address phones and Google or Outlook calendars subscribe to: tasks' due dates and project dates. Editors find it under a project's Tasks → Calendar. Anyone with the address can read it.</p>
+        <CalendarFeed path={feed} />
+      </section>
+
       <section>
         <h2 className="text-[15px] text-fg-hi">REST API</h2>
         <p className="mb-3 mt-1 text-[13px] text-muted">

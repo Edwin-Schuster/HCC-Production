@@ -23,3 +23,12 @@ export function daysUntil(iso: string | null | undefined, now = Date.now()): num
   if (!iso) return null;
   return Math.ceil((new Date(iso).getTime() - now) / 864e5);
 }
+
+/** A calendar date (YYYY-MM-DD), shown as-is whatever the time zone. */
+export function formatDay(day: string | null | undefined, opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" }): string {
+  if (!day) return "—";
+  return new Intl.DateTimeFormat("en-US", { ...opts, timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`));
+}
+
+export const formatMoney = (cents: number, opts: { cents?: boolean } = {}) =>
+  (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: opts.cents ? 2 : 0, maximumFractionDigits: opts.cents ? 2 : 0 });
