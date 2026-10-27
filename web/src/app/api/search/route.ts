@@ -1,9 +1,10 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { connection, NextResponse, type NextRequest } from "next/server";
 import { getContext } from "@/server/context";
 import { toPublicError } from "@/server/errors";
 import { searchSops } from "@/server/services/search";
 
 export async function GET(req: NextRequest) {
+  await connection();
   try {
     const sp = req.nextUrl.searchParams;
     const { db, actor } = await getContext();

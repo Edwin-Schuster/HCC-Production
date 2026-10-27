@@ -1,5 +1,5 @@
 import "server-only";
-import { NextResponse } from "next/server";
+import { connection, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import type { DB } from "@/db";
 import { getContext } from "@/server/context";
@@ -12,6 +12,8 @@ import type { Actor } from "@/server/permissions";
  */
 export function api<C>(fn: (ctx: { db: DB; actor: Actor; req: Request; route: C }) => Promise<unknown>) {
   return async (req: Request, route: C) => {
+    // API responses are always per request; saying so first keeps the build from trying to prerender them.
+    await connection();
     try {
       const { db, actor } = await getContext();
       const out = await fn({ db, actor, req, route });
