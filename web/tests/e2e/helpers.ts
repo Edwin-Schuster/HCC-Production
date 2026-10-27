@@ -4,6 +4,8 @@ export const ADMIN = { username: "e2e-admin", password: "e2e-password-1" };
 
 export async function signIn(page: Page, user = ADMIN) {
   await page.goto("/login");
+  // On a cold dev server the form can render before it hydrates; a click then would just reload the page.
+  await page.waitForLoadState("networkidle");
   await page.fill("#username", user.username);
   await page.fill("#password", user.password);
   await Promise.all([page.waitForURL("**/sops**"), page.click("button[type=submit]")]);

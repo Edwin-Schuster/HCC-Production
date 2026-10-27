@@ -36,3 +36,33 @@ export function DialogContent({ className, title, description, children, wide, .
     </D.Portal>
   );
 }
+
+/** A panel that slides in from the right (a bottom sheet on phones). Non-modal, so the page stays readable. */
+export function SheetContent({ className, title, description, children, actions, ...props }: ComponentProps<typeof D.Content> & { title: ReactNode; description?: ReactNode; actions?: ReactNode }) {
+  return (
+    <D.Portal>
+      <D.Content
+        onInteractOutside={(e) => e.preventDefault()}
+        className={cn(
+          "fixed z-40 flex flex-col border-line bg-surface-2 shadow-lg focus:outline-none",
+          "inset-x-0 bottom-0 max-h-[80vh] rounded-t-[12px] border-t",
+          "sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:w-[400px] sm:rounded-none sm:border-l sm:border-t-0",
+          className,
+        )}
+        {...props}
+      >
+        <div className="flex items-start gap-2 border-b border-line px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <D.Title className="truncate text-[14px] font-[510] text-fg-hi">{title}</D.Title>
+            {description ? <D.Description className="mt-0.5 truncate text-xs text-muted">{description}</D.Description> : <D.Description className="sr-only">{title}</D.Description>}
+          </div>
+          {actions}
+          <D.Close className="-mr-1 grid size-7 place-items-center rounded-[6px] text-muted hover:bg-wash hover:text-fg-hi" aria-label="Close">
+            <X className="size-4" />
+          </D.Close>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto pb-[max(16px,env(safe-area-inset-bottom))]">{children}</div>
+      </D.Content>
+    </D.Portal>
+  );
+}

@@ -334,7 +334,7 @@ function Step({ node, ctx, depth }: { node: StepNode; ctx: RenderContext; depth:
   const role = s.roleId ? ctx.roles[s.roleId] : undefined;
   const top = depth === 0;
   return (
-    <section id={`b-${node.id}`} data-key={node.key} className={cn("sop-step scroll-mt-24", top ? "my-6" : "my-4")} aria-label={`Step ${num}`}>
+    <section id={`b-${node.id}`} data-key={node.key} className={cn("sop-step group/step scroll-mt-24", top ? "my-6" : "my-4")} aria-label={`Step ${num}`}>
       <span id={`k-${node.key}`} className="block scroll-mt-24" aria-hidden />
       <div className="flex break-inside-avoid gap-3.5">
         {ctx.slots.badge?.(node, num) ?? (
