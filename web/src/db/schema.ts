@@ -2,6 +2,8 @@ import { sql, type SQL } from "drizzle-orm";
 import {
   boolean,
   customType,
+  date,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -47,6 +49,8 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   email: text("email"),
   passwordHash: text("password_hash"),
+  /** Topic on an ntfy server for phone push notifications. */
+  ntfyTopic: text("ntfy_topic"),
   disabled: boolean("disabled").notNull().default(false),
   createdAt: createdAt(),
 });
@@ -74,11 +78,22 @@ export type Branding = {
   footerText?: string | null;
 };
 
+export type WorkspaceSettings = {
+  /** Hours before a task's due date to remind assignees. */
+  reminderHours?: number;
+  ntfyServer?: string;
+  /** Public address of the app, used in links sent to phones and calendars. */
+  appUrl?: string;
+  /** Secret in the calendar feed URL. */
+  calendarToken?: string;
+};
+
 export const workspaces = pgTable("workspaces", {
   id: id(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   branding: jsonb("branding").$type<Branding>().notNull().default({}),
+  settings: jsonb("settings").$type<WorkspaceSettings>().notNull().default({}),
   createdAt: createdAt(),
 });
 
@@ -136,6 +151,7 @@ export const teamRoles = pgTable("team_roles", {
     .notNull()
     .references(() => workspaces.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  description: text("description").notNull().default(""),
   createdAt: createdAt(),
 });
 
@@ -630,3 +646,310 @@ export const quizAttempts = pgTable(
   },
   (t) => [index("quiz_attempts_user_idx").on(t.userId, t.sopId)],
 );
+
+// ---------- Production modules (ported from the original app) ----------
+
+const ws = () =>
+  text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" });
+const updatedAt = () => timestamp("updated_at", { withTimezone: true }).notNull().defaultNow();
+/** Calendar dates (no time zone), stored as YYYY-MM-DD. */
+const day = (name: string) => date(name, { mode: "string" });
+
+/** A file attached to something: an upload in /files, or a link to Drive, Dropbox, OneDrive or Box. */
+export type Attachment = { url: string; name: string; size?: number; mime?: string; external?: boolean };
+
+/** The production team roster. A person may also be an app user. */
+export const people = pgTable("people", {
+  id: id(),
+  workspaceId: ws(),
+  name: text("name").notNull(),
+  roleIds: text("role_ids").array().notNull().default(sql`'{}'::text[]`),
+  email: text("email").notNull().default(""),
+  phone: text("phone").notNull().default(""),
+  status: text("status").notNull().default("available"),
+  statusNote: text("status_note").notNull().default(""),
+  lastCheckIn: timestamp("last_check_in", { withTimezone: true }),
+  userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export const projects = pgTable("projects", {
+  id: id(),
+  workspaceId: ws(),
+  name: text("name").notNull(),
+  status: text("status").notNull().default("planning"),
+  start: day("start"),
+  end: day("end"),
+  color: text("color").notNull().default("#a3a3a3"),
+  summary: text("summary").notNull().default(""),
+  description: text("description").notNull().default(""),
+  budgetCents: integer("budget_cents").notNull().default(0),
+  leadId: text("lead_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export const tasks = pgTable(
+  "tasks",
+  {
+    id: id(),
+    workspaceId: ws(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    parentId: text("parent_id").references((): AnyPgColumn => tasks.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    status: text("status").notNull().default("todo"),
+    priority: text("priority").notNull().default("medium"),
+    assignees: text("assignees").array().notNull().default(sql`'{}'::text[]`),
+    labels: text("labels").array().notNull().default(sql`'{}'::text[]`),
+    start: day("start"),
+    due: day("due"),
+    position: doublePrecision("position").notNull().default(0),
+    attachments: jsonb("attachments").$type<Attachment[]>().notNull().default([]),
+    reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
+    overdueNotifiedAt: timestamp("overdue_notified_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("tasks_project_idx").on(t.projectId, t.status, t.position), index("tasks_due_idx").on(t.due)],
+);
+
+/** Comments on project work (tasks, punch items, purchase orders…). SOP comments live in `comments`. */
+export const workComments = pgTable(
+  "work_comments",
+  {
+    id: id(),
+    workspaceId: ws(),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id").notNull(),
+    projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    authorId: text("author_id").references(() => users.id, { onDelete: "set null" }),
+    body: text("body").notNull(),
+    mentions: text("mentions").array().notNull().default(sql`'{}'::text[]`),
+    createdAt: createdAt(),
+  },
+  (t) => [index("work_comments_target_idx").on(t.targetType, t.targetId, t.createdAt)],
+);
+
+/** "Edwin changed status from To Do to In Progress": the history shown on projects and tasks. */
+export const activity = pgTable(
+  "activity",
+  {
+    id: id(),
+    workspaceId: ws(),
+    projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id").notNull(),
+    targetName: text("target_name").notNull().default(""),
+    actorId: text("actor_id").references(() => users.id, { onDelete: "set null" }),
+    text: text("text").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("activity_project_idx").on(t.projectId, t.createdAt), index("activity_target_idx").on(t.targetType, t.targetId)],
+);
+
+export const cables = pgTable(
+  "cables",
+  {
+    id: id(),
+    workspaceId: ws(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    type: text("type").notNull().default("Other"),
+    from: text("from_location").notNull().default(""),
+    to: text("to_location").notNull().default(""),
+    lengthFt: doublePrecision("length_ft"),
+    status: text("status").notNull().default("planned"),
+    room: text("room").notNull().default(""),
+    notes: text("notes").notNull().default(""),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("cables_project_idx").on(t.projectId)],
+);
+
+export type LayoutItem = { id: string; type: string; label: string; x: number; y: number; w?: number; h?: number; gearId?: string };
+export type LayoutRun = { id: string; from: string; to: string; label: string; color?: string; cableId?: string };
+
+export const layouts = pgTable("layouts", {
+  id: id(),
+  workspaceId: ws(),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  backgroundUrl: text("background_url"),
+  width: integer("width").notNull().default(1000),
+  height: integer("height").notNull().default(640),
+  items: jsonb("items").$type<LayoutItem[]>().notNull().default([]),
+  runs: jsonb("runs").$type<LayoutRun[]>().notNull().default([]),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export const projectPhotos = pgTable("project_photos", {
+  id: id(),
+  workspaceId: ws(),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  caption: text("caption").notNull().default(""),
+  takenBy: text("taken_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: createdAt(),
+});
+
+export const bomItems = pgTable("bom_items", {
+  id: id(),
+  workspaceId: ws(),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  item: text("item").notNull(),
+  partNumber: text("part_number").notNull().default(""),
+  vendor: text("vendor").notNull().default(""),
+  category: text("category").notNull().default("Other"),
+  qty: doublePrecision("qty").notNull().default(1),
+  unitCostCents: integer("unit_cost_cents").notNull().default(0),
+  status: text("status").notNull().default("needed"),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export type PoLine = { id: string; desc: string; qty: number; unitCostCents: number; receivedQty: number; bomItemId?: string | null };
+
+export const purchaseOrders = pgTable("purchase_orders", {
+  id: id(),
+  workspaceId: ws(),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  poNumber: text("po_number").notNull(),
+  vendor: text("vendor").notNull().default(""),
+  date: day("date"),
+  status: text("status").notNull().default("draft"),
+  category: text("category").notNull().default("Other"),
+  notes: text("notes").notNull().default(""),
+  lines: jsonb("lines").$type<PoLine[]>().notNull().default([]),
+  receivedDate: day("received_date"),
+  attachments: jsonb("attachments").$type<Attachment[]>().notNull().default([]),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export const contractors = pgTable("contractors", {
+  id: id(),
+  workspaceId: ws(),
+  company: text("company").notNull(),
+  contact: text("contact").notNull().default(""),
+  trade: text("trade").notNull().default(""),
+  phone: text("phone").notNull().default(""),
+  email: text("email").notNull().default(""),
+  insuranceExpires: day("insurance_expires"),
+  rate: text("rate").notNull().default(""),
+  notes: text("notes").notNull().default(""),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export const scopesOfWork = pgTable("scopes_of_work", {
+  id: id(),
+  workspaceId: ws(),
+  contractorId: text("contractor_id")
+    .notNull()
+    .references(() => contractors.id, { onDelete: "cascade" }),
+  projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
+  title: text("title").notNull(),
+  status: text("status").notNull().default("draft"),
+  valueCents: integer("value_cents").notNull().default(0),
+  start: day("start"),
+  end: day("end"),
+  body: text("body").notNull().default(""),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export const siteAccess = pgTable("site_access", {
+  id: id(),
+  workspaceId: ws(),
+  contractorId: text("contractor_id").references(() => contractors.id, { onDelete: "cascade" }),
+  who: text("who").notNull(),
+  from: day("from_date"),
+  to: day("to_date"),
+  hours: text("hours").notNull().default(""),
+  areas: text("areas").notNull().default(""),
+  badge: text("badge").notNull().default(""),
+  approvedBy: text("approved_by").notNull().default(""),
+  notes: text("notes").notNull().default(""),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export const punchItems = pgTable("punch_items", {
+  id: id(),
+  workspaceId: ws(),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  contractorId: text("contractor_id").references(() => contractors.id, { onDelete: "set null" }),
+  location: text("location").notNull().default(""),
+  description: text("description").notNull(),
+  status: text("status").notNull().default("open"),
+  due: day("due"),
+  photos: jsonb("photos").$type<Attachment[]>().notNull().default([]),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export const invoices = pgTable("invoices", {
+  id: id(),
+  workspaceId: ws(),
+  contractorId: text("contractor_id").references(() => contractors.id, { onDelete: "cascade" }),
+  projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
+  number: text("number").notNull().default(""),
+  date: day("date"),
+  dueDate: day("due_date"),
+  amountCents: integer("amount_cents").notNull().default(0),
+  status: text("status").notNull().default("received"),
+  notes: text("notes").notNull().default(""),
+  attachments: jsonb("attachments").$type<Attachment[]>().notNull().default([]),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export type FirmwareChange = { from: string; to: string; at: string; by: string; note?: string };
+export type ConfigBackup = { id: string; url: string; name: string; size: number; note: string; at: string; by: string };
+
+export const gear = pgTable("gear", {
+  id: id(),
+  workspaceId: ws(),
+  name: text("name").notNull(),
+  category: text("category").notNull().default("Other"),
+  manufacturer: text("manufacturer").notNull().default(""),
+  model: text("model").notNull().default(""),
+  serial: text("serial").notNull().default(""),
+  assetTag: text("asset_tag").notNull().default(""),
+  location: text("location").notNull().default(""),
+  status: text("status").notNull().default("in_service"),
+  firmware: text("firmware").notNull().default(""),
+  firmwareUpdated: day("firmware_updated"),
+  firmwareHistory: jsonb("firmware_history").$type<FirmwareChange[]>().notNull().default([]),
+  ip: text("ip").notNull().default(""),
+  mac: text("mac").notNull().default(""),
+  purchaseDate: day("purchase_date"),
+  warranty: day("warranty"),
+  notes: text("notes").notNull().default(""),
+  configs: jsonb("configs").$type<ConfigBackup[]>().notNull().default([]),
+  photos: jsonb("photos").$type<Attachment[]>().notNull().default([]),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
