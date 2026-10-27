@@ -4,11 +4,19 @@ export const ADMIN = { username: "e2e-admin", password: "e2e-password-1" };
 
 export async function signIn(page: Page, user = ADMIN) {
   await page.goto("/login");
-  // On a cold dev server the form can render before it hydrates; a click then would just reload the page.
-  await page.waitForLoadState("networkidle");
-  await page.fill("#username", user.username);
-  await page.fill("#password", user.password);
-  await Promise.all([page.waitForURL("**/sops**"), page.click("button[type=submit]")]);
+  // On a cold dev server the form can render before it hydrates, and a click then just reloads the page.
+  // Retry the submit until it signs in.
+  for (let attempt = 0; ; attempt++) {
+    await page.fill("#username", user.username);
+    await page.fill("#password", user.password);
+    await page.click("button[type=submit]");
+    try {
+      await page.waitForURL("**/sops**", { timeout: 15_000 });
+      return;
+    } catch (e) {
+      if (attempt >= 4) throw e;
+    }
+  }
 }
 
 /** Opens a seeded SOP from the library by title. */

@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArchiveRestore, CalendarCheck, ChevronDown, FileDown, History, MoreHorizontal, Pencil, Settings2, Trash2, Workflow } from "lucide-react";
+import { Archive, ArchiveRestore, CalendarCheck, ChevronDown, FileDown, History, MoreHorizontal, Pencil, Settings2, Share2, Trash2, Workflow } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { MarkReviewedDialog } from "./mark-reviewed";
+import { ShareDialog } from "./share-dialog";
 
 type Props = {
   sopId: string;
@@ -29,6 +30,7 @@ type Props = {
 export function SopActions(p: Props) {
   const [details, setDetails] = useState(false);
   const [reviewing, setReviewing] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [confirm, setConfirm] = useState<null | "retire" | "delete">(null);
   const [pending, start] = useTransition();
   const pdf = (w?: string) => `/api/sops/${p.sopId}/pdf?${new URLSearchParams({ ...(p.versionQuery ? Object.fromEntries(new URLSearchParams(p.versionQuery)) : {}), ...(w ? { watermark: w } : {}) })}`;
@@ -84,6 +86,11 @@ export function SopActions(p: Props) {
               <Settings2 /> Owner, folder, tags & review…
             </MenuItem>
             {p.published && !p.retired && (
+              <MenuItem onSelect={() => setSharing(true)}>
+                <Share2 /> Share outside the team…
+              </MenuItem>
+            )}
+            {p.published && !p.retired && (
               <MenuItem onSelect={() => setReviewing(true)}>
                 <CalendarCheck /> Mark as reviewed…
               </MenuItem>
@@ -113,6 +120,7 @@ export function SopActions(p: Props) {
       <ThemeToggle />
 
       <MarkReviewedDialog sopId={p.sopId} title={p.title} open={reviewing} onOpenChange={setReviewing} />
+      {p.canEdit && <ShareDialog sopId={p.sopId} open={sharing} onOpenChange={setSharing} />}
 
       <Dialog open={details} onOpenChange={setDetails}>
         <DialogContent title="SOP details" description="These apply to every version. Changes to a published SOP are recorded in its audit log.">

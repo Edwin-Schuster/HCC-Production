@@ -15,8 +15,8 @@ test("version history shows both published versions", async ({ page }) => {
   await signIn(page);
   await openSop(page, "Sunday System Startup");
   await page.getByRole("link", { name: /History/ }).click();
-  await expect(page.getByText("Added the rack diagram and breaker table.")).toBeVisible();
-  await expect(page.getByText("First version, moved from the old handbook.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Added the rack diagram and breaker table." })).toBeVisible();
+  await expect(page.getByRole("link", { name: "First version, moved from the old handbook." })).toBeVisible();
 });
 
 test("search finds text inside steps and callouts", async ({ page }) => {

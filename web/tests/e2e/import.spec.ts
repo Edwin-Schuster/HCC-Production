@@ -5,7 +5,8 @@ import { signIn } from "./helpers";
 test("import a Word document, preview it, and create a draft", async ({ page }) => {
   await signIn(page);
   await page.goto("/sops/import");
-  await page.waitForLoadState("networkidle"); // the file input needs React attached before a file is picked
+  await expect(page.getByText("Drop a document here")).toBeVisible();
+  await page.waitForTimeout(1500); // the file input needs React attached before a file is picked
   await page.locator('input[type="file"]').setInputFiles(path.join(__dirname, "../fixtures/sample.docx"));
   await expect(page.locator("#title")).toHaveValue("Projector Lamp Swap");
   await expect(page.getByText(/3 steps|5 steps/)).toBeVisible();
