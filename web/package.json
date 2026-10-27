@@ -6,7 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "db:generate": "drizzle-kit generate",
+    "import:legacy-users": "tsx scripts/import-legacy-users.ts",
+    "build:scripts": "esbuild scripts/import-legacy-users.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/import-legacy-users.mjs --external:@electric-sql/pglite --external:pg --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\""
   },
   "dependencies": {
     "@blocknote/core": "^0.56.0",
@@ -37,6 +43,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "drizzle-kit": "^0.31.11",
+    "esbuild": "^0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
     "tailwindcss": "^4",

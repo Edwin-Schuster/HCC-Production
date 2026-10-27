@@ -45,3 +45,7 @@ next-env.d.ts
 /uploads
 /test-results
 /playwright-report
+/dist
+!.env.example
+/test-results
+/playwright-report
