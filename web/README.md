@@ -50,7 +50,7 @@ Outside Docker: `npm run import:legacy-users -- /path/to/hcc.db`.
 | `DATABASE_URL` | `pglite://./.data/pglite` | `postgres://user:pass@host:5432/db` for Postgres. `pglite://<dir>` or `pglite://memory` for embedded Postgres (development and tests). |
 | `DATABASE_POOL_MAX` | `10` | Postgres connection pool size. |
 | `ADMIN_USER`, `ADMIN_PASSWORD`, `ADMIN_NAME`, `ADMIN_EMAIL` | `admin`, random, `Administrator`, none | The first admin, created only when there are no users. Without `ADMIN_PASSWORD`, a random one is printed to the logs. |
-| `SEED_DEMO` | `true` | Demo folders, people and SOPs on an empty database. Set `false` for production. |
+| `SEED_DEMO` | `true` | Demo folders, people and SOPs on an empty database. Only runs when the database has no SOPs or folders. |
 | `ORG_NAME` | `Hope Christian Church` | Workspace name on first start. |
 | `COOKIE_SECURE` | `false` | Set `true` when served over HTTPS. |
 | `DATA_DIR` | `./.data` | Where uploads (and embedded Postgres, if used) live. `/data` in Docker. |
