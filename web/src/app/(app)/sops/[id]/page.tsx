@@ -150,7 +150,7 @@ async function Reader({ params, searchParams }: { params: PageProps<"/sops/[id]"
         )}
 
         <div className="mt-8">
-          {doc.blocks.length ? <SopBody blocks={doc.blocks} roles={doc.roles} /> : <Empty title="This SOP is empty">{doc.canEdit ? "Open the editor and type / to add steps." : null}</Empty>}
+          {doc.blocks.length ? <SopBody blocks={doc.blocks} roles={doc.roles} snippets={doc.snippets} /> : <Empty title="This SOP is empty">{doc.canEdit ? "Open the editor and type / to add steps." : null}</Empty>}
         </div>
       </article>
       <aside className="sticky top-10 hidden max-h-[calc(100dvh-80px)] w-[220px] shrink-0 self-start overflow-y-auto xl:block">

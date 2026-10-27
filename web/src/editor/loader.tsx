@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { EditorProps } from "./sop-editor";
+import type { SnippetEditorProps } from "./snippet-editor";
 
 /** BlockNote needs the DOM, so the editor only renders in the browser. */
 const SopEditor = dynamic(() => import("./sop-editor"), {
@@ -24,4 +25,10 @@ const SopEditor = dynamic(() => import("./sop-editor"), {
 
 export function EditorLoader(props: EditorProps) {
   return <SopEditor {...props} />;
+}
+
+const SnippetEditor = dynamic(() => import("./snippet-editor"), { ssr: false, loading: () => <div className="h-96" aria-busy /> });
+
+export function SnippetEditorLoader(props: SnippetEditorProps) {
+  return <SnippetEditor {...props} />;
 }

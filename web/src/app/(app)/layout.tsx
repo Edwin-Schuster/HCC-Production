@@ -50,6 +50,11 @@ async function NavContent() {
         <NavLink href="/search" icon={NavIcons.search}>
           Search
         </NavLink>
+        {atLeast(actor, "editor") && (
+          <NavLink href="/snippets" icon={NavIcons.snippets}>
+            Snippets
+          </NavLink>
+        )}
       </nav>
       <div>
         <div className="mb-1 flex items-center justify-between px-2.5 text-xs font-[510] text-muted">

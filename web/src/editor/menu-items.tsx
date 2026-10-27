@@ -3,12 +3,12 @@
 import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from "@blocknote/core";
 import { SideMenuExtension } from "@blocknote/core/extensions";
 import { getDefaultReactSlashMenuItems, useBlockNoteEditor, useComponentsContext, useExtensionState, type DefaultReactSuggestionItem } from "@blocknote/react";
-import { AlertTriangle, CornerDownRight, Info, ListOrdered, OctagonAlert } from "lucide-react";
+import { AlertTriangle, CornerDownRight, Film, Globe, Info, ListOrdered, OctagonAlert, Puzzle } from "lucide-react";
 import type { ReactNode } from "react";
 import type { SopEditor } from "./schema";
 
 /** Slash menu: our structured blocks first, then BlockNote's items for the built-in types we support. */
-export function slashItems(editor: SopEditor): DefaultReactSuggestionItem[] {
+export function slashItems(editor: SopEditor, opts: { snippets?: boolean } = {}): DefaultReactSuggestionItem[] {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const insert = (block: any) => () => insertOrUpdateBlockForSlashMenu(editor, block);
   const ours: DefaultReactSuggestionItem[] = [
@@ -28,12 +28,15 @@ export function slashItems(editor: SopEditor): DefaultReactSuggestionItem[] {
     { title: "Note callout", subtext: "Helpful information", aliases: ["note", "info", "callout", "tip"], group: "SOP", icon: <Info size={18} />, onItemClick: insert({ type: "callout", props: { variant: "info" } }) },
     { title: "Warning callout", subtext: "Something that could go wrong", aliases: ["warning", "caution", "callout"], group: "SOP", icon: <AlertTriangle size={18} />, onItemClick: insert({ type: "callout", props: { variant: "warning" } }) },
     { title: "Danger callout", subtext: "Risk to people or equipment", aliases: ["danger", "stop", "callout"], group: "SOP", icon: <OctagonAlert size={18} />, onItemClick: insert({ type: "callout", props: { variant: "danger" } }) },
+    { title: "Snippet", subtext: "Insert a shared block of steps used in several SOPs", aliases: ["snippet", "reuse", "shared", "include"], group: "SOP", icon: <Puzzle size={18} />, onItemClick: insert({ type: "snippet" }) },
+    { title: "Video", subtext: "YouTube, Vimeo or an uploaded video", aliases: ["video", "youtube", "vimeo", "movie"], group: "Media", icon: <Film size={18} />, onItemClick: insert({ type: "video" }) },
+    { title: "Embed", subtext: "Show another web page inside the SOP", aliases: ["embed", "iframe", "web", "page"], group: "Media", icon: <Globe size={18} />, onItemClick: insert({ type: "embed" }) },
   ];
   const builtIn = getDefaultReactSlashMenuItems(editor).filter((i) => !/emoji|video|audio|file|quote|toggle/i.test(i.title));
-  return [...ours, ...builtIn];
+  return [...ours.filter((i) => opts.snippets !== false || i.title !== "Snippet"), ...builtIn];
 }
 
-export const getSlashItems = (editor: SopEditor) => async (query: string) => filterSuggestionItems(slashItems(editor), query);
+export const getSlashItems = (editor: SopEditor, opts?: { snippets?: boolean }) => async (query: string) => filterSuggestionItems(slashItems(editor, opts), query);
 
 function useSideMenuBlock() {
   const editor = useBlockNoteEditor<never, never, never>() as unknown as SopEditor;

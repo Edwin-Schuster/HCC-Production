@@ -1,4 +1,4 @@
-import type { BlockNode, CalloutVariant, InlineRun, RichText } from "./schema";
+import type { BlockNode, BranchRule, CalloutVariant, InlineRun, RichText } from "./schema";
 
 /** Small helpers to write block trees by hand (templates, seed data, tests). */
 let counter = 0;
@@ -28,7 +28,7 @@ export const h = (text: string, level: 1 | 2 | 3 = 2) => node("heading", { level
 export const p = (text: string) => node("text", { text: rt(text) });
 export const step = (
   title: string,
-  opts: { description?: string; roleId?: string | null; minutes?: number | null; expected?: string; warning?: string } = {},
+  opts: { description?: string; roleId?: string | null; minutes?: number | null; expected?: string; warning?: string; branches?: BranchRule[] } = {},
   children: BlockNode[] = [],
 ) =>
   node(
@@ -41,6 +41,7 @@ export const step = (
       expectedResult: opts.expected ?? "",
       warning: opts.warning ?? "",
       collapsed: false,
+      branches: opts.branches ?? [],
     },
     children,
   );
@@ -48,5 +49,8 @@ export const check = (text: string, checked = false) => node("checklist", { text
 export const callout = (variant: CalloutVariant, text: string) => node("callout", { variant, text: rt(text) });
 export const code = (codeText: string, language = "text") => node("code", { language, code: codeText });
 export const table = (rows: string[][], headerRow = true) => node("table", { headerRow, rows: rows.map((r) => r.map(rt)) });
-export const image = (url: string, caption = "") => node("image", { url, caption, width: null });
+export const image = (url: string, caption = "") => node("image", { url, caption, width: null, originalUrl: null, annotations: [] });
+export const video = (url: string, caption = "") => node("video", { url, caption });
+export const embed = (url: string, title = "", height = 480) => node("embed", { url, title, height });
+export const snippetRef = (snippetId: string, version: number | null = null) => node("snippet_ref", { snippetId, version });
 export const divider = () => node("divider", {});

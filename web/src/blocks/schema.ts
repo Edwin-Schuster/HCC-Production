@@ -18,12 +18,33 @@ export type InlineRun = z.infer<typeof InlineRun>;
 export const RichText = z.array(InlineRun).max(500);
 export type RichText = z.infer<typeof RichText>;
 
-export const BLOCK_TYPES = ["heading", "text", "step", "checklist", "callout", "code", "table", "image", "divider"] as const;
+export const BLOCK_TYPES = ["heading", "text", "step", "checklist", "callout", "code", "table", "image", "video", "embed", "snippet_ref", "divider"] as const;
 export type BlockType = (typeof BLOCK_TYPES)[number];
 export const CALLOUT_VARIANTS = ["info", "warning", "danger"] as const;
 export type CalloutVariant = (typeof CALLOUT_VARIANTS)[number];
 
 const short = (max: number) => z.string().max(max);
+
+/** "If the projector doesn't power on, go to step 7." Targets are block keys, so they survive renumbering. */
+export const BranchRule = z.object({ condition: short(300), target: z.string().min(1).max(64) });
+export type BranchRule = z.infer<typeof BranchRule>;
+
+/** Marks drawn on a screenshot. Coordinates are fractions of the image size (0–1). */
+export const Annotation = z.object({
+  kind: z.enum(["arrow", "box", "blur", "marker", "text"]),
+  x: z.number().min(-1).max(2),
+  y: z.number().min(-1).max(2),
+  w: z.number().min(-2).max(2).default(0),
+  h: z.number().min(-2).max(2).default(0),
+  n: z.number().int().min(0).max(999).optional(),
+  text: short(500).optional(),
+  color: z.string().regex(/^#[0-9a-f]{6}$/i).optional(),
+  /** Added automatically (e.g. an OCR-detected password field) rather than drawn. */
+  auto: z.boolean().optional(),
+});
+export type Annotation = z.infer<typeof Annotation>;
+
+const httpsUrl = short(2_000).regex(/^(https:|\/)/i, "Use an https:// link or an uploaded file");
 
 export const ContentSchemas = {
   heading: z.object({ level: z.union([z.literal(1), z.literal(2), z.literal(3)]), text: RichText }),
@@ -37,6 +58,7 @@ export const ContentSchemas = {
     expectedResult: short(5_000).default(""),
     warning: short(5_000).default(""),
     collapsed: z.boolean().default(false),
+    branches: z.array(BranchRule).max(10).default([]),
   }),
   checklist: z.object({ text: RichText, checked: z.boolean().default(false) }),
   callout: z.object({ variant: z.enum(CALLOUT_VARIANTS), text: RichText }),
@@ -49,7 +71,14 @@ export const ContentSchemas = {
     url: short(2_000).regex(/^(https?:|\/|data:image\/)/i, "Images must be uploaded files or http(s) links"),
     caption: short(1_000).default(""),
     width: z.number().int().min(40).max(4_000).nullable().default(null),
+    /** The unannotated upload, kept so annotations stay editable. url is the flattened result. */
+    originalUrl: short(2_000).nullable().default(null),
+    annotations: z.array(Annotation).max(200).default([]),
   }),
+  video: z.object({ url: httpsUrl, caption: short(1_000).default("") }),
+  embed: z.object({ url: httpsUrl, title: short(300).default(""), height: z.number().int().min(120).max(2_000).default(480) }),
+  /** A reusable snippet. version null = always the latest; a number pins that version. */
+  snippet_ref: z.object({ snippetId: z.string().min(1).max(64), version: z.number().int().min(1).nullable().default(null) }),
   divider: z.object({}),
 } satisfies Record<BlockType, z.ZodType>;
 

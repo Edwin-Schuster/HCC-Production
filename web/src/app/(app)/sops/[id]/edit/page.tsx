@@ -5,6 +5,7 @@ import { requireRole } from "@/server/context";
 import { getDb } from "@/db";
 import { AppError } from "@/server/errors";
 import { getEditorState, getSopDocument, listTeamRoles } from "@/server/services/sops";
+import { snippetCatalog } from "@/server/services/snippets";
 import { EditorLoader } from "@/editor/loader";
 import { Empty } from "@/components/page";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ async function Editor({ params }: { params: PageProps<"/sops/[id]/edit">["params
     );
   }
   const [state, doc, roles] = data;
+  const snippets = await snippetCatalog(db, actor, state.blocks);
   return (
     <EditorLoader
       sopId={id}
@@ -52,6 +54,7 @@ async function Editor({ params }: { params: PageProps<"/sops/[id]/edit">["params
       published={Boolean(doc.sop.currentVersionId)}
       initial={state}
       roles={roles}
+      snippets={snippets}
     />
   );
 }

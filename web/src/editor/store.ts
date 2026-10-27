@@ -1,15 +1,32 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import type { BlockNode } from "@/blocks/schema";
+import type { SnippetResolver } from "@/blocks/snippets";
+import type { ImageExtras } from "./convert";
+
+export type StepOption = { key: string; number: string; title: string };
+/** Snippets the editor can insert, with the blocks needed to preview them (latest and any pinned versions in use). */
+export type SnippetCatalogItem = { id: string; name: string; currentVersion: number; versions: Record<number, BlockNode[]> };
 
 /**
  * Per-editor data that custom block views need (step numbers, team roles).
  * Block views render through BlockNote's node-view portals, so this is a plain store rather than React context.
  */
-type State = { numbers: Map<string, string>; roles: { id: string; name: string }[] };
+type State = {
+  numbers: Map<string, string>;
+  roles: { id: string; name: string }[];
+  /** Steps a branch can point to. */
+  steps: StepOption[];
+  snippets: SnippetCatalogItem[];
+  /** Annotation data for image blocks, by editor id (BlockNote's image block has no props for it). */
+  images: Map<string, ImageExtras>;
+  /** Stable key of an editor block (its id unless it was loaded from the server). */
+  keyOf: (id: string) => string;
+};
 
 class EditorStore {
-  private state: State = { numbers: new Map(), roles: [] };
+  private state: State = { numbers: new Map(), roles: [], steps: [], snippets: [], images: new Map(), keyOf: (id) => id };
   private listeners = new Set<() => void>();
   get = () => this.state;
   subscribe = (l: () => void) => {
@@ -34,21 +51,13 @@ export function useEditorStore<T>(editor: object, pick: (s: State) => T): T {
   return useSyncExternalStore(store.subscribe, () => pick(store.get()), () => pick(store.get()));
 }
 
-type NumberedBlock = { id: string; type: string; children: NumberedBlock[] };
-
-/** Same rules as the reading view: top level 1, 2, 3; sub-steps 3.1, 3.2.1; non-steps are transparent. */
-export function numberDocument(blocks: NumberedBlock[]): Map<string, string> {
-  const out = new Map<string, string>();
-  const visit = (list: NumberedBlock[], prefix: string, counter: { n: number }) => {
-    for (const b of list) {
-      if (b.type === "step") {
-        counter.n += 1;
-        const label = prefix ? `${prefix}.${counter.n}` : String(counter.n);
-        out.set(b.id, label);
-        visit(b.children, label, { n: 0 });
-      } else visit(b.children, prefix, counter);
-    }
+/** Resolves snippet references from the catalog the editor was opened with. */
+export function catalogResolver(catalog: SnippetCatalogItem[]): SnippetResolver {
+  return (id, version) => {
+    const item = catalog.find((c) => c.id === id);
+    if (!item) return null;
+    const v = version ?? item.currentVersion;
+    const blocks = item.versions[v] ?? item.versions[item.currentVersion];
+    return blocks ? { name: item.name, version: v, blocks } : null;
   };
-  visit(blocks, "", { n: 0 });
-  return out;
 }

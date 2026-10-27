@@ -12,13 +12,25 @@ export type AuditAction =
   | "sop.draft_discarded"
   | "folder.created"
   | "folder.updated"
-  | "folder.deleted";
+  | "folder.deleted"
+  | "sop.snippet_updated"
+  | "sop.review_requested"
+  | "sop.approved"
+  | "sop.changes_requested"
+  | "sop.reviewed"
+  | "sop.rolled_back"
+  | "sop.suggestion_accepted"
+  | "sop.imported"
+  | "snippet.created"
+  | "snippet.updated"
+  | "snippet.deleted"
+  | "workspace.branding_updated";
 
 export async function audit(
   db: Executor,
   actor: Actor,
   action: AuditAction,
-  target: { type: "sop" | "folder" | "version"; id: string },
+  target: { type: "sop" | "folder" | "version" | "snippet" | "workspace"; id: string },
   metadata: Record<string, unknown> = {},
 ) {
   await db.insert(auditEvents).values({

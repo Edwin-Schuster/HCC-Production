@@ -1,4 +1,4 @@
-import type { BlockNode, InlineRun, RichText } from "@/blocks/schema";
+import { Annotation, BranchRule, type BlockNode, type InlineRun, type RichText } from "@/blocks/schema";
 
 /**
  * BlockNote's document ⇄ our stored block model. Only this file knows BlockNote's shapes,
@@ -85,11 +85,31 @@ export function inlineToBN(rt: RichText): BNInline[] {
 const plainText = (content: unknown): string =>
   Array.isArray(content) ? (content as BNText[]).map((c) => c.text ?? "").join("") : typeof content === "string" ? content : "";
 
-/** BlockNote document → stored blocks. `keys` maps editor ids to stable keys (blocks loaded from the server). */
-export function fromBlockNote(blocks: BNBlock[], keys: Map<string, string> = new Map()): BlockNode[] {
+/** Image fields BlockNote's built-in image block has no props for, kept beside the editor by block id. */
+export type ImageExtras = { originalUrl: string | null; annotations: Annotation[] };
+
+function parseJsonArray<T>(raw: unknown, item: { safeParse: (v: unknown) => { success: true; data: T } | { success: false } }): T[] {
+  let arr: unknown;
+  try {
+    arr = typeof raw === "string" ? JSON.parse(raw || "[]") : raw;
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(arr)) return [];
+  return arr.flatMap((v) => {
+    const r = item.safeParse(v);
+    return r.success ? [r.data] : [];
+  });
+}
+
+/**
+ * BlockNote document → stored blocks. `keys` maps editor ids to stable keys (blocks loaded from the server);
+ * `images` carries annotation data for image blocks.
+ */
+export function fromBlockNote(blocks: BNBlock[], keys: Map<string, string> = new Map(), images: Map<string, ImageExtras> = new Map()): BlockNode[] {
   const out: BlockNode[] = [];
   for (const b of blocks) {
-    const children = fromBlockNote(b.children ?? [], keys);
+    const children = fromBlockNote(b.children ?? [], keys, images);
     const base = { id: b.id, key: keys.get(b.id) ?? b.id, children };
     const p = b.props ?? {};
     switch (b.type) {
@@ -120,7 +140,29 @@ export function fromBlockNote(blocks: BNBlock[], keys: Map<string, string> = new
           break;
         }
         const width = typeof p.previewWidth === "number" ? Math.round(p.previewWidth) : null;
-        out.push({ ...base, type: "image", content: { url, caption: String(p.caption ?? ""), width: width && width >= 40 ? width : null } });
+        const extra = images.get(b.id) ?? { originalUrl: null, annotations: [] };
+        out.push({ ...base, type: "image", content: { url, caption: String(p.caption ?? ""), width: width && width >= 40 ? width : null, ...extra } });
+        break;
+      }
+      case "video":
+      case "embed": {
+        const url = String(p.url ?? "");
+        if (!url) {
+          out.push(...children);
+          break;
+        }
+        if (b.type === "video") out.push({ ...base, type: "video", content: { url, caption: String(p.caption ?? "") } });
+        else out.push({ ...base, type: "embed", content: { url, title: String(p.title ?? ""), height: Math.min(2000, Math.max(120, Number(p.height) || 480)) } });
+        break;
+      }
+      case "snippet": {
+        const snippetId = String(p.snippetId ?? "");
+        if (!snippetId) {
+          out.push(...children);
+          break;
+        }
+        const version = Number(p.version) > 0 ? Math.round(Number(p.version)) : null;
+        out.push({ ...base, type: "snippet_ref", content: { snippetId, version } });
         break;
       }
       case "divider":
@@ -138,6 +180,7 @@ export function fromBlockNote(blocks: BNBlock[], keys: Map<string, string> = new
             expectedResult: String(p.expectedResult ?? ""),
             warning: String(p.warning ?? ""),
             collapsed: Boolean(p.collapsed),
+            branches: parseJsonArray(p.branches, BranchRule).slice(0, 10),
           },
         });
         break;
@@ -183,6 +226,12 @@ export function toBlockNote(nodes: BlockNode[]): BNPartial[] {
       }
       case "image":
         return { id: n.id, type: "image", props: { url: n.content.url, caption: n.content.caption, ...(n.content.width ? { previewWidth: n.content.width } : {}) }, children };
+      case "video":
+        return { id: n.id, type: "video", props: { url: n.content.url, caption: n.content.caption }, children };
+      case "embed":
+        return { id: n.id, type: "embed", props: { url: n.content.url, title: n.content.title, height: n.content.height }, children };
+      case "snippet_ref":
+        return { id: n.id, type: "snippet", props: { snippetId: n.content.snippetId, version: n.content.version ?? 0 }, children };
       case "divider":
         return { id: n.id, type: "divider", children };
       case "step":
@@ -196,6 +245,7 @@ export function toBlockNote(nodes: BlockNode[]): BNPartial[] {
             expectedResult: n.content.expectedResult,
             warning: n.content.warning,
             collapsed: n.content.collapsed,
+            branches: JSON.stringify(n.content.branches),
           },
           content: inlineToBN(n.content.title),
           children,
@@ -211,6 +261,15 @@ export function keyMap(nodes: BlockNode[], into = new Map<string, string>()): Ma
   for (const n of nodes) {
     into.set(n.id, n.key);
     keyMap(n.children, into);
+  }
+  return into;
+}
+
+/** Annotation data for image blocks loaded from the server, by editor id. */
+export function imageExtras(nodes: BlockNode[], into = new Map<string, ImageExtras>()): Map<string, ImageExtras> {
+  for (const n of nodes) {
+    if (n.type === "image" && (n.content.originalUrl || n.content.annotations.length)) into.set(n.id, { originalUrl: n.content.originalUrl, annotations: n.content.annotations });
+    imageExtras(n.children, into);
   }
   return into;
 }

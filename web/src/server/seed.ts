@@ -1,9 +1,10 @@
 import { eq } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { folders, teamRoles, users, workspaceMembers } from "@/db/schema";
-import { callout, check, code, divider, h, image, p, step, table } from "@/blocks/build";
+import { callout, check, code, divider, h, image, p, snippetRef, step, table } from "@/blocks/build";
 import type { Actor } from "@/server/permissions";
 import { createSop, publishDraft, saveDraft, getOrCreateDraft } from "@/server/services/sops";
+import { createSnippet } from "@/server/services/snippets";
 import { DEFAULT_TEAM_ROLES } from "./bootstrap";
 
 const RACK_SVG = "/seed/rack-diagram.svg";
@@ -92,7 +93,34 @@ export async function seedDemoContent(db: Executor, workspaceId: string) {
   await write(startup.id, "Sunday System Startup", "Power-up order for the sanctuary systems before the first service.", v2);
   await publishDraft(db, actor, startup.id, { changeSummary: "Added the rack diagram and breaker table." });
 
-  // 2. Livestream Go-Live Checklist
+  // 2. A shared snippet and an SOP that uses it.
+  const ampsOff = await createSnippet(db, actor, {
+    name: "Amplifier power-down",
+    description: "Safe order for turning the PA off. Used by every shutdown SOP.",
+    blocks: [
+      callout("danger", "Amps go off **first**. Never power down the console while the amps are on."),
+      step("Mute the main L/R and sub buses", { roleId: role("Audio"), minutes: 1 }),
+      step("Turn off the amplifiers, rack by rack", { roleId: role("Audio"), minutes: 2, expected: "All amp front panels dark." }),
+    ],
+  });
+  const shutdown = await createSop(db, actor, {
+    title: "Sunday System Shutdown",
+    folderId: folder("Sunday Service"),
+    summary: "Power-down order after the last service.",
+    tags: ["sunday", "power", "audio"],
+    reviewIntervalDays: 180,
+  });
+  await write(shutdown.id, "Sunday System Shutdown", "Power-down order after the last service.", [
+    h("Procedure"),
+    step("Save the console show file", { roleId: role("Audio"), minutes: 2, description: "Save over `Sunday_Main_v12` only if the changes should carry into next week." }),
+    snippetRef(ampsOff.id),
+    step("Power down the video system", { roleId: role("Video"), minutes: 3 }),
+    step("Turn off the stage racks with the sequencer", { roleId: role("Technical"), minutes: 1 }),
+    step("Lock the booth and return the key", { minutes: 1 }),
+  ]);
+  await publishDraft(db, actor, shutdown.id, { changeSummary: "First version." });
+
+  // 3. Livestream Go-Live Checklist
   const live = await createSop(db, actor, {
     title: "Livestream Go-Live",
     folderId: folder("Video & Stream"),
@@ -100,6 +128,13 @@ export async function seedDemoContent(db: Executor, workspaceId: string) {
     tags: ["stream", "youtube", "sunday"],
     ownerId: james.id,
     reviewIntervalDays: 90,
+  });
+  const fallback = step("Restart the encoder and re-enter the stream key", { roleId: role("Stream"), minutes: 5, warning: "Tell the producer before restarting; the countdown has to be re-rolled." });
+  const noSignal = step("Start the YouTube event", {
+    roleId: role("Stream"),
+    minutes: 2,
+    expected: "YouTube Studio shows **Receiving**.",
+    branches: [{ condition: "YouTube Studio still shows No data after 60 seconds", target: fallback.key }],
   });
   await write(live.id, "Livestream Go-Live", "Everything to verify before the stream goes live at 8:55.", [
     p("Run this checklist 20 minutes before the service."),
@@ -111,14 +146,16 @@ export async function seedDemoContent(db: Executor, workspaceId: string) {
     h("Encoder settings"),
     code("Resolution: 1920x1080\nFrame rate: 29.97\nBitrate: 6000 kbps CBR\nKeyframe: 2 s\nAudio: AAC 48 kHz, 192 kbps", "text"),
     h("Going live"),
-    step("Start the YouTube event", { roleId: role("Stream"), minutes: 2, expected: "YouTube Studio shows **Receiving**." }),
+    noSignal,
     step("Roll the countdown at 8:55", { roleId: role("ProPresenter"), minutes: 5 }),
     step("Confirm audio on the stream", { roleId: role("Stream"), minutes: 2, description: "Listen on the confidence monitor with the 30-second delay. Don't trust the booth speakers for this." }),
+    h("If the stream won't connect"),
+    fallback,
     callout("danger", "**Never stop the encoder first.** End the event in YouTube Studio, then stop the encoder, or the recording breaks."),
   ]);
   await publishDraft(db, actor, live.id, { changeSummary: "First version." });
 
-  // 3. Wireless mic battery swap (quick reference)
+  // 4. Wireless mic battery swap (quick reference)
   const rfSop = await createSop(db, actor, {
     title: "Wireless Mic Frequencies & Batteries",
     folderId: rf.id,
@@ -142,7 +179,7 @@ export async function seedDemoContent(db: Executor, workspaceId: string) {
   ]);
   await publishDraft(db, actor, rfSop.id, { changeSummary: "First version." });
 
-  // 4. A draft that has never been published.
+  // 5. A draft that has never been published.
   const fw = await createSop(db, actor, {
     title: "Firmware Updates & Config Backups",
     folderId: folder("Maintenance"),

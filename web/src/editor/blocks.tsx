@@ -1,10 +1,11 @@
 "use client";
 
 import { createReactBlockSpec } from "@blocknote/react";
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Clock, FileText, Info, OctagonAlert, Plus, UserRound } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Clock, CornerDownRight, FileText, Info, OctagonAlert, Plus, UserRound, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { useEditorStore } from "./store";
+import type { BranchRule } from "@/blocks/schema";
+import { useEditorStore, type StepOption } from "./store";
 
 // ---------------------------------------------------------------------------
 // Step: title is editable inline; fields live in a compact panel under it.
@@ -21,6 +22,8 @@ export const StepBlock = createReactBlockSpec(
       expectedResult: { default: "" },
       warning: { default: "" },
       collapsed: { default: false },
+      /** JSON array of { condition, target } (target is a step's key). */
+      branches: { default: "[]" },
     },
     content: "inline",
   },
@@ -29,6 +32,8 @@ export const StepBlock = createReactBlockSpec(
     render: function StepView({ block, editor, contentRef }) {
       const num = useEditorStore(editor, (s) => s.numbers.get(block.id) ?? "");
       const roles = useEditorStore(editor, (s) => s.roles);
+      const steps = useEditorStore(editor, (s) => s.steps);
+      const ownKey = useEditorStore(editor, (s) => s.keyOf(block.id));
       const p = block.props;
       const update = (props: Partial<typeof p>) => editor.updateBlock(block, { props: props as never });
       const hasNested = block.children.length > 0;
@@ -39,7 +44,7 @@ export const StepBlock = createReactBlockSpec(
               {num || "·"}
             </span>
             <div ref={contentRef} className="hcc-step-title min-w-0 flex-1" />
-            {(hasNested || p.description || p.expectedResult || p.warning) && (
+            {(hasNested || p.description || p.expectedResult || p.warning || p.branches !== "[]") && (
               <button
                 type="button"
                 contentEditable={false}
@@ -52,17 +57,28 @@ export const StepBlock = createReactBlockSpec(
               </button>
             )}
           </div>
-          {!p.collapsed && <StepFields props={p} roles={roles} onChange={update} />}
+          {!p.collapsed && <StepFields props={p} roles={roles} steps={steps.filter((x) => x.key !== ownKey)} onChange={update} />}
         </div>
       );
     },
   },
 );
 
-type StepProps = { description: string; roleId: string; estDuration: number; expectedResult: string; warning: string; collapsed: boolean };
+type StepProps = { description: string; roleId: string; estDuration: number; expectedResult: string; warning: string; collapsed: boolean; branches: string };
 
-function StepFields({ props: p, roles, onChange }: { props: StepProps; roles: { id: string; name: string }[]; onChange: (patch: Partial<StepProps>) => void }) {
+function parseBranches(raw: string): BranchRule[] {
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v.filter((b) => b && typeof b.condition === "string" && typeof b.target === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function StepFields({ props: p, roles, steps, onChange }: { props: StepProps; roles: { id: string; name: string }[]; steps: StepOption[]; onChange: (patch: Partial<StepProps>) => void }) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const branches = parseBranches(p.branches);
+  const setBranches = (next: BranchRule[]) => onChange({ branches: JSON.stringify(next) });
   const show = (k: "description" | "expectedResult" | "warning") => Boolean(p[k]) || open[k];
   return (
     <div contentEditable={false} className="hcc-step-fields ml-[38px] mt-1.5 grid gap-2">
@@ -98,10 +114,63 @@ function StepFields({ props: p, roles, onChange }: { props: StepProps; roles: { 
             <Plus className="size-3" /> Warning
           </button>
         )}
+        {branches.length < 10 && steps.length > 0 && (
+          <button
+            type="button"
+            className="hcc-chip hcc-chip-add hcc-chip-empty"
+            title="If something happens, go to another step"
+            onClick={() => setBranches([...branches, { condition: "", target: steps[0].key }])}
+          >
+            <Plus className="size-3" /> Branch
+          </button>
+        )}
       </div>
+      {branches.map((b, i) => (
+        <BranchRow
+          key={i}
+          branch={b}
+          steps={steps}
+          autoFocus={!b.condition}
+          onChange={(next) => setBranches(branches.map((x, j) => (j === i ? next : x)))}
+          onRemove={() => setBranches(branches.filter((_, j) => j !== i))}
+        />
+      ))}
       {show("description") && <DraftText icon={<FileText className="size-3.5 text-muted" />} label="Details" placeholder="Exactly what to do. Use **bold** and `code`." value={p.description} autoFocus={open.description} onCommit={(v) => onChange({ description: v })} />}
       {show("warning") && <DraftText tone="warn" icon={<AlertTriangle className="size-3.5 text-warn" />} label="Warning" placeholder="What could go wrong, and how to avoid it." value={p.warning} autoFocus={open.warning} onCommit={(v) => onChange({ warning: v })} />}
       {show("expectedResult") && <DraftText icon={<CheckCircle2 className="size-3.5 text-good" />} label="Expected result" placeholder="What you should see when this step worked." value={p.expectedResult} autoFocus={open.expectedResult} onCommit={(v) => onChange({ expectedResult: v })} />}
+    </div>
+  );
+}
+
+function BranchRow({ branch, steps, onChange, onRemove, autoFocus }: { branch: BranchRule; steps: StepOption[]; onChange: (b: BranchRule) => void; onRemove: () => void; autoFocus?: boolean }) {
+  const [condition, change, bind] = useDraft(branch.condition, (c) => onChange({ ...branch, condition: c }));
+  const known = steps.some((s) => s.key === branch.target);
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-[6px] border border-line px-2.5 py-1.5 text-[14px]">
+      <CornerDownRight className="size-3.5 text-muted" aria-hidden />
+      <span className="text-muted">If</span>
+      <input
+        value={condition}
+        autoFocus={autoFocus}
+        onChange={(e) => change(e.target.value.slice(0, 300))}
+        {...bind}
+        placeholder="the projector doesn't power on"
+        aria-label="Branch condition"
+        className="min-w-40 flex-1 bg-transparent text-fg-2 outline-none placeholder:text-faint"
+      />
+      <span className="text-muted">go to</span>
+      <select value={branch.target} onChange={(e) => onChange({ ...branch, target: e.target.value })} aria-label="Branch target step" className="max-w-56 rounded-[4px] bg-wash px-1.5 py-0.5 text-[13px] outline-none">
+        {!known && <option value={branch.target}>Removed step</option>}
+        {steps.map((s) => (
+          <option key={s.key} value={s.key}>
+            Step {s.number}
+            {s.title ? `: ${s.title.slice(0, 40)}` : ""}
+          </option>
+        ))}
+      </select>
+      <button type="button" onClick={onRemove} className="grid size-6 place-items-center rounded-[4px] text-muted hover:bg-wash hover:text-fg-hi" aria-label="Remove branch">
+        <X className="size-3.5" />
+      </button>
     </div>
   );
 }

@@ -30,6 +30,11 @@ const tsvector = customType<{ data: string }>({
 export const memberRole = pgEnum("member_role", ["admin", "editor", "viewer"]);
 export const folderVisibility = pgEnum("folder_visibility", ["public", "members", "editors"]);
 export const sopStatus = pgEnum("sop_status", ["draft", "in_review", "approved", "published", "retired"]);
+export const approvalDecision = pgEnum("approval_decision", ["approved", "changes_requested"]);
+export const feedbackType = pgEnum("feedback_type", ["unclear", "wrong", "other"]);
+export const feedbackStatus = pgEnum("feedback_status", ["open", "accepted", "rejected"]);
+export const suggestionStatus = pgEnum("suggestion_status", ["pending", "accepted", "rejected"]);
+export const runStatus = pgEnum("run_status", ["in_progress", "completed", "abandoned"]);
 
 // ---------- Identity (ported HCC login) ----------
 
@@ -58,10 +63,19 @@ export const sessions = pgTable(
 
 // ---------- Workspace ----------
 
+export type Branding = {
+  logoUrl?: string | null;
+  primaryColor?: string | null;
+  font?: "default" | "serif" | "system" | null;
+  headerText?: string | null;
+  footerText?: string | null;
+};
+
 export const workspaces = pgTable("workspaces", {
   id: id(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
+  branding: jsonb("branding").$type<Branding>().notNull().default({}),
   createdAt: createdAt(),
 });
 
@@ -91,6 +105,8 @@ export const folders = pgTable(
     name: text("name").notNull(),
     codePrefix: varchar("code_prefix", { length: 12 }).notNull(),
     visibility: folderVisibility("visibility").notNull().default("members"),
+    /** Approvals a draft needs before it can be published. 0 = editors publish directly. */
+    requiredApprovals: integer("required_approvals").notNull().default(0),
     position: integer("position").notNull().default(0),
     createdAt: createdAt(),
   },
@@ -196,6 +212,9 @@ export const sopVersions = pgTable(
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     updatedBy: text("updated_by").references(() => users.id),
+    /** Set while a draft waits for approval. */
+    reviewRequestedAt: timestamp("review_requested_at", { withTimezone: true }),
+    reviewRequestedBy: text("review_requested_by").references(() => users.id),
   },
   (t) => [
     uniqueIndex("sop_versions_number_idx").on(t.sopId, t.versionNumber),
@@ -261,3 +280,180 @@ export const files = pgTable("files", {
   createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: createdAt(),
 });
+
+// ---------- Phase 2: collaboration and governance ----------
+
+/** An approver's decision on a draft. Only counts while the draft is unchanged since (draftUpdatedAt). */
+export const sopApprovals = pgTable(
+  "sop_approvals",
+  {
+    id: id(),
+    sopId: text("sop_id")
+      .notNull()
+      .references(() => sops.id, { onDelete: "cascade" }),
+    versionId: text("version_id")
+      .notNull()
+      .references(() => sopVersions.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    decision: approvalDecision("decision").notNull(),
+    comment: text("comment").notNull().default(""),
+    draftUpdatedAt: timestamp("draft_updated_at", { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("sop_approvals_version_idx").on(t.versionId)],
+);
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    actorId: text("actor_id").references(() => users.id, { onDelete: "set null" }),
+    kind: text("kind").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull().default(""),
+    link: text("link").notNull().default(""),
+    /** Collapses repeats, e.g. one review reminder per SOP per due date. */
+    dedupeKey: text("dedupe_key"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("notifications_user_idx").on(t.userId, t.readAt, t.createdAt), uniqueIndex("notifications_dedupe_idx").on(t.userId, t.dedupeKey)],
+);
+
+/** "This step is unclear / wrong" from readers, routed to the SOP owner. */
+export const feedback = pgTable(
+  "feedback",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    sopId: text("sop_id")
+      .notNull()
+      .references(() => sops.id, { onDelete: "cascade" }),
+    versionId: text("version_id")
+      .notNull()
+      .references(() => sopVersions.id, { onDelete: "cascade" }),
+    blockKey: text("block_key").notNull(),
+    blockLabel: text("block_label").notNull().default(""),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: feedbackType("type").notNull(),
+    message: text("message").notNull().default(""),
+    status: feedbackStatus("status").notNull().default("open"),
+    resolvedBy: text("resolved_by").references(() => users.id, { onDelete: "set null" }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolutionNote: text("resolution_note").notNull().default(""),
+    createdAt: createdAt(),
+  },
+  (t) => [index("feedback_sop_idx").on(t.sopId, t.status)],
+);
+
+export type Suggestion = { blockKey: string; field: "text" | "title" | "description" | "expectedResult" | "warning"; before: string; after: string };
+
+/** Threaded comments on an SOP or one of its blocks. A comment can carry a suggested edit. */
+export const comments = pgTable(
+  "comments",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    sopId: text("sop_id")
+      .notNull()
+      .references(() => sops.id, { onDelete: "cascade" }),
+    blockKey: text("block_key"),
+    parentId: text("parent_id").references((): AnyPgColumn => comments.id, { onDelete: "cascade" }),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    mentions: text("mentions").array().notNull().default(sql`'{}'::text[]`),
+    suggestion: jsonb("suggestion").$type<Suggestion>(),
+    suggestionStatus: suggestionStatus("suggestion_status"),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedBy: text("resolved_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+  },
+  (t) => [index("comments_sop_idx").on(t.sopId, t.createdAt)],
+);
+
+/** One time someone worked through an SOP as a checklist. */
+export const runs = pgTable(
+  "runs",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    sopId: text("sop_id")
+      .notNull()
+      .references(() => sops.id, { onDelete: "cascade" }),
+    versionId: text("version_id")
+      .notNull()
+      .references(() => sopVersions.id),
+    label: text("label").notNull().default(""),
+    startedBy: text("started_by")
+      .notNull()
+      .references(() => users.id),
+    status: runStatus("status").notNull().default("in_progress"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => [index("runs_sop_idx").on(t.sopId, t.startedAt)],
+);
+
+export const runSteps = pgTable(
+  "run_steps",
+  {
+    runId: text("run_id")
+      .notNull()
+      .references(() => runs.id, { onDelete: "cascade" }),
+    blockId: text("block_id").notNull(),
+    blockKey: text("block_key").notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    completedBy: text("completed_by").references(() => users.id, { onDelete: "set null" }),
+    skipped: boolean("skipped").notNull().default(false),
+    note: text("note").notNull().default(""),
+  },
+  (t) => [primaryKey({ columns: [t.runId, t.blockId] })],
+);
+
+/** Reusable groups of blocks. SOPs reference a snippet; unpinned references always show the latest version. */
+export const snippets = pgTable("snippets", {
+  id: id(),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  currentVersion: integer("current_version").notNull().default(1),
+  createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Every saved version of a snippet is kept, so pinned references never change. */
+export const snippetVersions = pgTable(
+  "snippet_versions",
+  {
+    snippetId: text("snippet_id")
+      .notNull()
+      .references(() => snippets.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    blocks: jsonb("blocks").notNull(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.snippetId, t.version] })],
+);

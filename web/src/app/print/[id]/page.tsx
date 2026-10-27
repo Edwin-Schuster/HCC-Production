@@ -46,7 +46,7 @@ async function PrintDoc({ params, searchParams }: { params: PageProps<"/print/[i
           </p>
         )}
         <div className="mt-6">
-          <SopBody blocks={doc.blocks} roles={doc.roles} print />
+          <SopBody blocks={doc.blocks} roles={doc.roles} snippets={doc.snippets} print />
         </div>
       </div>
     </div>

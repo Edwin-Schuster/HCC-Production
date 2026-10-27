@@ -1,17 +1,40 @@
-import { AlertTriangle, CheckCircle2, Clock, Info, OctagonAlert, UserRound } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, CornerDownRight, ExternalLink, Info, OctagonAlert, Puzzle, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { CopyButton } from "@/components/copy-button";
 import { cn } from "@/lib/utils";
 import { rt } from "./build";
 import type { BlockNode, InlineRun, RichText } from "./schema";
-import { formatMinutes, numberSteps } from "./tree";
+import { formatMinutes, numberSteps, walk } from "./tree";
+import { videoEmbedUrl } from "./media";
 
 /**
  * The one renderer for SOP content. Used by the reading view, the editor preview and the PDF,
  * so they always match. Pure (no hooks) so it runs in Server and Client Components.
  */
 
-export type RenderContext = { numbers: Map<string, string>; roles: Record<string, string>; print?: boolean };
+/** Keyed by the snippet reference block's id. */
+export type SnippetInfo = { name: string; version: number; pinned: boolean };
+type StepNode = Extract<BlockNode, { type: "step" }>;
+
+/** Lets a page attach controls (feedback, comments, run checkboxes) to steps without forking the renderer. */
+export type StepSlots = {
+  /** Replaces the number badge, e.g. with a run checkbox. */
+  badge?: (step: StepNode, number: string) => ReactNode;
+  /** Rendered at the end of the step's header row. */
+  actions?: (step: StepNode, number: string) => ReactNode;
+  /** Rendered under the step's fields. */
+  footer?: (step: StepNode, number: string) => ReactNode;
+};
+
+export type RenderContext = {
+  numbers: Map<string, string>;
+  /** Step numbers by block key, for branch targets. */
+  keyNumbers: Map<string, string>;
+  roles: Record<string, string>;
+  snippets: Record<string, SnippetInfo>;
+  slots: StepSlots;
+  print?: boolean;
+};
 
 export function Inline({ text }: { text: RichText }) {
   return (
@@ -55,8 +78,25 @@ function Prose({ text, className }: { text: string; className?: string }) {
   );
 }
 
-export function SopBody({ blocks, roles = {}, print = false, className }: { blocks: BlockNode[]; roles?: Record<string, string>; print?: boolean; className?: string }) {
-  const ctx: RenderContext = { numbers: numberSteps(blocks), roles, print };
+export function SopBody({
+  blocks,
+  roles = {},
+  snippets = {},
+  slots = {},
+  print = false,
+  className,
+}: {
+  blocks: BlockNode[];
+  roles?: Record<string, string>;
+  snippets?: Record<string, SnippetInfo>;
+  slots?: StepSlots;
+  print?: boolean;
+  className?: string;
+}) {
+  const numbers = numberSteps(blocks);
+  const keyNumbers = new Map<string, string>();
+  for (const { node } of walk(blocks)) if (node.type === "step" && numbers.has(node.id)) keyNumbers.set(node.key, numbers.get(node.id)!);
+  const ctx: RenderContext = { numbers, keyNumbers, roles, snippets, slots, print };
   return <div className={cn("sop-body text-[15px] leading-[1.65] text-fg-2", className)}>{renderList(blocks, ctx, 0)}</div>;
 }
 
@@ -174,6 +214,58 @@ function Block({ node, ctx, depth }: { node: BlockNode; ctx: RenderContext; dept
           {node.content.caption && <figcaption className="mt-2 text-center text-[12.5px] text-muted">{node.content.caption}</figcaption>}
         </figure>
       );
+    case "video": {
+      const embedUrl = videoEmbedUrl(node.content.url);
+      return (
+        <figure className="my-5 break-inside-avoid">
+          {ctx.print ? (
+            <MediaLink url={node.content.url} label="Video" />
+          ) : embedUrl ? (
+            <div className="relative aspect-video overflow-hidden rounded-[12px] border border-line bg-surface">
+              <iframe src={embedUrl} title={node.content.caption || "Video"} className="absolute inset-0 size-full" allow="encrypted-media; picture-in-picture; fullscreen" loading="lazy" />
+            </div>
+          ) : (
+            <video src={node.content.url} controls preload="metadata" className="block w-full rounded-[12px] border border-line bg-black" />
+          )}
+          {node.content.caption && <figcaption className="mt-2 text-center text-[12.5px] text-muted">{node.content.caption}</figcaption>}
+        </figure>
+      );
+    }
+    case "embed":
+      return (
+        <figure className="my-5 break-inside-avoid">
+          {ctx.print ? (
+            <MediaLink url={node.content.url} label={node.content.title || "Embedded page"} />
+          ) : (
+            <iframe
+              src={node.content.url}
+              title={node.content.title || "Embedded page"}
+              style={{ height: node.content.height }}
+              className="block w-full rounded-[12px] border border-line bg-surface"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+              referrerPolicy="no-referrer"
+              loading="lazy"
+            />
+          )}
+          {node.content.title && !ctx.print && <figcaption className="mt-2 text-center text-[12.5px] text-muted">{node.content.title}</figcaption>}
+        </figure>
+      );
+    case "snippet_ref": {
+      const info = ctx.snippets[node.id];
+      if (!info || !node.children.length)
+        return <div className="my-4 rounded-[6px] border border-dashed border-line px-4 py-3 text-[13px] text-muted">This shared snippet is no longer available.</div>;
+      return (
+        <div className="sop-snippet my-5" data-snippet={node.content.snippetId}>
+          {!ctx.print && (
+            <div className="mb-1 flex items-center gap-1.5 text-[11px] text-faint" title={info.pinned ? `Pinned to version ${info.version}` : "Shared snippet. Updates here when the snippet changes."}>
+              <Puzzle className="size-3" aria-hidden /> {info.name}
+              {info.pinned && <span className="font-mono">· v{info.version}</span>}
+            </div>
+          )}
+          {renderList(node.children, ctx, depth)}
+        </div>
+      );
+    }
     case "divider":
       return <hr className="my-8 border-0 border-t border-line" />;
     case "checklist":
@@ -226,26 +318,42 @@ function Callout({ node, ctx, depth }: { node: Extract<BlockNode, { type: "callo
   );
 }
 
-function Step({ node, ctx, depth }: { node: Extract<BlockNode, { type: "step" }>; ctx: RenderContext; depth: number }) {
+function MediaLink({ url, label }: { url: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-[6px] border border-line px-3 py-2 text-[13px]">
+      <ExternalLink className="size-3.5 shrink-0 text-muted" aria-hidden />
+      <span className="font-[510] text-fg-hi">{label}:</span>
+      <span className="truncate font-mono text-[12px] text-fg-2">{url}</span>
+    </div>
+  );
+}
+
+function Step({ node, ctx, depth }: { node: StepNode; ctx: RenderContext; depth: number }) {
   const s = node.content;
   const num = ctx.numbers.get(node.id) ?? "";
   const role = s.roleId ? ctx.roles[s.roleId] : undefined;
   const top = depth === 0;
   return (
-    <section id={`b-${node.id}`} className={cn("sop-step scroll-mt-24", top ? "my-6" : "my-4")} aria-label={`Step ${num}`}>
+    <section id={`b-${node.id}`} data-key={node.key} className={cn("sop-step scroll-mt-24", top ? "my-6" : "my-4")} aria-label={`Step ${num}`}>
+      <span id={`k-${node.key}`} className="block scroll-mt-24" aria-hidden />
       <div className="flex break-inside-avoid gap-3.5">
-        <span
-          className={cn(
-            "mt-[1px] flex h-[26px] shrink-0 items-center justify-center rounded-full border font-mono text-xs tabular-nums",
-            top ? "min-w-[26px] border-line-2 bg-surface-2 px-1.5 text-fg-hi" : "min-w-[26px] border-line bg-transparent px-2 text-fg-2",
-          )}
-        >
-          {num}
-        </span>
+        {ctx.slots.badge?.(node, num) ?? (
+          <span
+            className={cn(
+              "sop-step-num mt-[1px] flex h-[26px] shrink-0 items-center justify-center rounded-full border font-mono text-xs tabular-nums",
+              top ? "min-w-[26px] border-line-2 bg-surface-2 px-1.5 text-fg-hi" : "min-w-[26px] border-line bg-transparent px-2 text-fg-2",
+            )}
+          >
+            {num}
+          </span>
+        )}
         <div className="min-w-0 flex-1 space-y-2.5">
-          <h3 className={cn("font-[510] leading-[26px] tracking-[-0.011em] text-fg-hi", top ? "text-[15.5px]" : "text-[15px]")}>
-            {s.title.length ? <Inline text={s.title} /> : <span className="text-faint">Untitled step</span>}
-          </h3>
+          <div className="flex items-start gap-2">
+            <h3 className={cn("min-w-0 flex-1 font-[510] leading-[26px] tracking-[-0.011em] text-fg-hi", top ? "text-[15.5px]" : "text-[15px]")}>
+              {s.title.length ? <Inline text={s.title} /> : <span className="text-faint">Untitled step</span>}
+            </h3>
+            {!ctx.print && ctx.slots.actions?.(node, num)}
+          </div>
           {(role || s.estDuration) && (
             <div className="flex flex-wrap gap-1.5 text-xs">
               {role && (
@@ -276,6 +384,34 @@ function Step({ node, ctx, depth }: { node: Extract<BlockNode, { type: "step" }>
               </div>
             </div>
           )}
+          {s.branches.length > 0 && (
+            <ul className="space-y-1 text-[14px]" role="list" aria-label="Branches">
+              {s.branches.map((b, i) => {
+                const target = ctx.keyNumbers.get(b.target);
+                return (
+                  <li key={i} className="flex items-start gap-2">
+                    <CornerDownRight className="mt-[4px] size-3.5 shrink-0 text-muted" aria-hidden />
+                    <span>
+                      <span className="text-muted">If</span> {b.condition}{" "}
+                      <span className="text-muted">→</span>{" "}
+                      {target ? (
+                        ctx.print ? (
+                          <span className="font-[510] text-fg-hi">go to step {target}</span>
+                        ) : (
+                          <a href={`#k-${b.target}`} className="font-[510] text-fg-hi underline decoration-line-2 underline-offset-2">
+                            go to step {target}
+                          </a>
+                        )
+                      ) : (
+                        <span className="text-faint">a step that was removed</span>
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {!ctx.print && ctx.slots.footer?.(node, num)}
         </div>
       </div>
       {node.children.length > 0 && <div className="ml-[13px] mt-3 border-l border-line pl-[22px]">{renderList(node.children, ctx, depth + 1)}</div>}

@@ -50,7 +50,11 @@ export function blockText(node: BlockNode): string {
     case "table":
       return node.content.rows.map((r) => r.map(plain).join(" | ")).join("\n");
     case "image":
+    case "video":
       return node.content.caption;
+    case "embed":
+      return node.content.title;
+    case "snippet_ref":
     case "divider":
       return "";
   }

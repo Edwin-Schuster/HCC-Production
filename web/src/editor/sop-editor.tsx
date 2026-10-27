@@ -19,10 +19,12 @@ import { Field, Kbd, Textarea } from "@/components/ui/field";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import { useTheme } from "@/components/theme";
 import { cn } from "@/lib/utils";
-import { fromBlockNote, keyMap, toBlockNote, type BNBlock } from "./convert";
+import { expandSnippets } from "@/blocks/snippets";
+import { numberSteps, plain, walk } from "@/blocks/tree";
+import { fromBlockNote, imageExtras, keyMap, toBlockNote, type BNBlock } from "./convert";
 import { CollapseItem, DuplicateItem, getSlashItems } from "./menu-items";
 import { sopSchema, type SopEditor as Editor } from "./schema";
-import { numberDocument, storeFor } from "./store";
+import { catalogResolver, storeFor, type SnippetCatalogItem } from "./store";
 
 export type EditorProps = {
   sopId: string;
@@ -39,6 +41,7 @@ export type EditorProps = {
     blocks: BlockNode[];
   };
   roles: { id: string; name: string }[];
+  snippets: SnippetCatalogItem[];
 };
 
 type SaveState = "clean" | "dirty" | "saving" | "saved" | "offline" | "error" | "conflict";
@@ -68,9 +71,11 @@ function clearLocal(id: string) {
   } catch {}
 }
 
-export default function SopEditor({ sopId, documentCode, folderName, published, initial, roles }: EditorProps) {
+export default function SopEditor({ sopId, documentCode, folderName, published, initial, roles, snippets }: EditorProps) {
   const router = useRouter();
   const keys = useMemo(() => keyMap(initial.blocks), [initial.blocks]);
+  const images = useMemo(() => imageExtras(initial.blocks), [initial.blocks]);
+  const resolveSnippet = useMemo(() => catalogResolver(snippets), [snippets]);
   const uploadFile = useCallback(async (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
@@ -119,9 +124,16 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
   const dirty = useRef(false);
 
 
-  const snapshot = useCallback((): BlockNode[] => fromBlockNote(editor.document as unknown as BNBlock[], keys), [editor, keys]);
+  const snapshot = useCallback((): BlockNode[] => fromBlockNote(editor.document as unknown as BNBlock[], keys, images), [editor, keys, images]);
 
-  const renumber = useCallback(() => storeFor(editor).set({ numbers: numberDocument(editor.document as never) }), [editor]);
+  /** Numbers and branch targets come from the same expanded tree the reading view uses. */
+  const renumber = useCallback(() => {
+    const { blocks } = expandSnippets(snapshot(), resolveSnippet);
+    const numbers = numberSteps(blocks);
+    const steps = [];
+    for (const { node } of walk(blocks)) if (node.type === "step" && !node.id.includes("~")) steps.push({ key: node.key, number: numbers.get(node.id) ?? "", title: plain(node.content.title) });
+    storeFor(editor).set({ numbers, steps });
+  }, [editor, snapshot, resolveSnippet]);
 
   /** Saves now. Returns true when the server has the latest content. */
   const save = useCallback(
@@ -195,12 +207,12 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
 
   // Roles and numbering on mount; drop a local copy that the server already has.
   useEffect(() => {
-    storeFor(editor).set({ roles });
+    storeFor(editor).set({ roles, snippets, images, keyOf: (id) => keys.get(id) ?? id });
     renumber();
     if (!recovered) clearLocal(sopId);
     // Mount only: once the recovery banner is resolved, the local copy belongs to autosave.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, roles, renumber, sopId]);
+  }, [editor, roles, snippets, images, keys, renumber, sopId]);
 
   // Save when leaving: keepalive request plus the local copy as a fallback.
   useEffect(() => {
@@ -447,7 +459,7 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
         </div>
         {preview && (
           <div className="mt-8 sm:pl-[54px]">
-            <PreviewPane editor={editor} keys={keys} roles={roles} />
+            <PreviewPane blocks={snapshot()} resolve={resolveSnippet} roles={roles} />
           </div>
         )}
       </div>
@@ -505,9 +517,9 @@ function TitleInput({ value, onChange }: { value: string; onChange: (v: string) 
   );
 }
 
-function PreviewPane({ editor, keys, roles }: { editor: Editor; keys: Map<string, string>; roles: { id: string; name: string }[] }) {
-  const blocks = fromBlockNote(editor.document as unknown as BNBlock[], keys);
-  return <SopBody blocks={blocks} roles={Object.fromEntries(roles.map((r) => [r.id, r.name]))} />;
+function PreviewPane({ blocks, resolve, roles }: { blocks: BlockNode[]; resolve: ReturnType<typeof catalogResolver>; roles: { id: string; name: string }[] }) {
+  const expanded = expandSnippets(blocks, resolve);
+  return <SopBody blocks={expanded.blocks} snippets={expanded.snippets} roles={Object.fromEntries(roles.map((r) => [r.id, r.name]))} />;
 }
 
 function PublishDialog({ open, onOpenChange, nextVersion, onPublish }: { open: boolean; onOpenChange: (o: boolean) => void; nextVersion: number; onPublish: (summary: string) => Promise<boolean> }) {

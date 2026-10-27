@@ -19,6 +19,9 @@ import {
 } from "@/server/permissions";
 import { audit } from "./audit";
 import { requireFolder } from "./folders";
+import { snippetResolver } from "./snippets";
+import { expandSnippets } from "@/blocks/snippets";
+import type { SnippetInfo } from "@/blocks/render";
 
 export type SopStatus = (typeof sops.$inferSelect)["status"];
 
@@ -222,7 +225,9 @@ export type SopDocument = {
     changeSummary: string | null;
     updatedAt: string;
   };
+  /** With snippet references expanded. */
   blocks: BlockNode[];
+  snippets: Record<string, SnippetInfo>;
   roles: Record<string, string>;
   canEdit: boolean;
   canManage: boolean;
@@ -252,6 +257,8 @@ export async function getSopDocument(db: Executor, actor: Actor, sopId: string, 
   const [current] = sop.currentVersionId ? await db.select().from(sopVersions).where(eq(sopVersions.id, sop.currentVersionId)).limit(1) : [];
   const hasDraft = canReadDrafts(actor) && Boolean(await draftOf(db, sop.id));
   const roleRows = await db.select({ id: teamRoles.id, name: teamRoles.name }).from(teamRoles).where(eq(teamRoles.workspaceId, actor.workspaceId));
+  const raw = await loadBlocks(db, v.id);
+  const expanded = expandSnippets(raw, await snippetResolver(db, actor.workspaceId, raw));
 
   return {
     sop: {
@@ -284,7 +291,8 @@ export async function getSopDocument(db: Executor, actor: Actor, sopId: string, 
       changeSummary: v.changeSummary,
       updatedAt: v.updatedAt.toISOString(),
     },
-    blocks: await loadBlocks(db, v.id),
+    blocks: expanded.blocks,
+    snippets: expanded.snippets,
     roles: Object.fromEntries(roleRows.map((r) => [r.id, r.name])),
     canEdit: canEditSop(actor, sop, visibility),
     canManage: canManageSop(actor, sop),

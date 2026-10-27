@@ -2,12 +2,13 @@
 
 import { BlockNoteSchema, defaultBlockSpecs, type BlockNoteEditor } from "@blocknote/core";
 import { CalloutBlock, StepBlock } from "./blocks";
+import { EmbedBlock, SnippetBlock, VideoBlock } from "./media-blocks";
 
 const { paragraph, heading, checkListItem, codeBlock, table, image, divider } = defaultBlockSpecs;
 
 /** Exactly the block types the stored model supports, so nothing unsupported can be created. */
 export const sopSchema = BlockNoteSchema.create({
-  blockSpecs: { paragraph, heading, step: StepBlock(), checkListItem, callout: CalloutBlock(), codeBlock, table, image, divider },
+  blockSpecs: { paragraph, heading, step: StepBlock(), checkListItem, callout: CalloutBlock(), codeBlock, table, image, video: VideoBlock(), embed: EmbedBlock(), snippet: SnippetBlock(), divider },
 });
 
 /**

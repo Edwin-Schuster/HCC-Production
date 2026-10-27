@@ -123,6 +123,9 @@ const TYPE_LABEL: Record<BlockNode["type"], string> = {
   code: "Code",
   table: "Table",
   image: "Image",
+  video: "Video",
+  embed: "Embed",
+  snippet_ref: "Snippet",
   divider: "Divider",
 };
 
