@@ -96,6 +96,7 @@ describe("tasks", () => {
     expect(await kinds(mentioned.userId!)).toEqual(["mention"]);
     expect(await kinds(assignee.userId!)).toContain("task_comment");
     expect((await getTask(t.db, editor, task.id)).comments[0]).toMatchObject({ authorName: "tk-cm", body: "Can @tk-cm-mn help?" });
+    expect((await listTasks(t.db, editor, p.id))[0]).toMatchObject({ commentCount: 1, createdByName: "tk-cm" });
   });
 
   it("reminds once before the due date and once when overdue", async () => {

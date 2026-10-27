@@ -1,7 +1,7 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { and, eq, ne, sql } from "drizzle-orm";
 import type { Executor } from "@/db";
-import { projects, tasks, workspaces } from "@/db/schema";
+import { contractors, projects, siteAccess, tasks, workspaces } from "@/db/schema";
 import { buildIcs, type CalendarEvent } from "@/lib/ics";
 import { PRIORITY_LABEL, TASK_STATUS_LABEL, type Priority, type TaskStatus } from "@/lib/work";
 import { forbidden } from "@/server/errors";
@@ -61,5 +61,19 @@ export async function calendarFeed(db: Executor, token: string, origin: string):
     });
   for (const p of await db.select().from(projects).where(and(eq(projects.workspaceId, ws.id), sql`${projects.start} is not null`)))
     events.push({ uid: `project-${p.id}`, start: p.start!, end: p.end ?? p.start!, summary: `Project: ${p.name}`, description: p.summary, url: `${base}/projects/${p.id}` });
+  const access = await db
+    .select({ a: siteAccess, company: contractors.company })
+    .from(siteAccess)
+    .leftJoin(contractors, eq(contractors.id, siteAccess.contractorId))
+    .where(and(eq(siteAccess.workspaceId, ws.id), sql`${siteAccess.from} is not null`));
+  for (const { a, company } of access)
+    events.push({
+      uid: `access-${a.id}`,
+      start: a.from!,
+      end: a.to ?? a.from!,
+      summary: `Site access: ${a.who}`,
+      description: [company, a.hours, a.areas && `Areas: ${a.areas}`, a.badge && `Keys/badge: ${a.badge}`].filter(Boolean).join(" · "),
+      url: a.contractorId ? `${base}/contractors/${a.contractorId}` : undefined,
+    });
   return buildIcs(ws.name, events);
 }

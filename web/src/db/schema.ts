@@ -860,6 +860,8 @@ export const contractors = pgTable("contractors", {
   insuranceExpires: day("insurance_expires"),
   rate: text("rate").notNull().default(""),
   notes: text("notes").notNull().default(""),
+  /** Insurance certificates, W-9s, contracts. */
+  attachments: jsonb("attachments").$type<Attachment[]>().notNull().default([]),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -877,6 +879,7 @@ export const scopesOfWork = pgTable("scopes_of_work", {
   start: day("start"),
   end: day("end"),
   body: text("body").notNull().default(""),
+  attachments: jsonb("attachments").$type<Attachment[]>().notNull().default([]),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

@@ -8,6 +8,7 @@ import type { Actor } from "@/server/permissions";
 import { describeChanges, logActivity } from "./activity";
 import { Day, loadProject, requireEditor } from "./projects";
 import { emit } from "./webhooks";
+import { Attachments } from "./files";
 
 /** Bills of materials, purchase orders and the budget they roll up into. Editors only. */
 
@@ -124,10 +125,7 @@ export const PoInput = z.object({
   category: z.string().trim().min(1).max(40).default("Other"),
   notes: z.string().trim().max(2_000).default(""),
   lines: z.array(LineInput).max(200).default([]),
-  attachments: z
-    .array(z.object({ url: z.string().max(2_000), name: z.string().max(200), size: z.number().optional(), mime: z.string().optional(), external: z.boolean().optional() }))
-    .max(30)
-    .default([]),
+  attachments: Attachments.default([]),
 });
 
 /** All purchase orders in the workspace, or one project's. */

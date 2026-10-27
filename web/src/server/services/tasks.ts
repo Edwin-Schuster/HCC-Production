@@ -10,6 +10,7 @@ import { resolveMentions } from "./comments";
 import { membersWithRole, notify } from "./notifications";
 import { Day, loadProject, requireEditor } from "./projects";
 import { emit } from "./webhooks";
+import { Attachments } from "./files";
 
 /** Tasks belong to a project; subtasks are tasks with a parent in the same project. Editors only. */
 
@@ -36,17 +37,6 @@ export type TaskView = {
 const asStatus = (s: string): TaskStatus => ((TASK_STATUSES as readonly string[]).includes(s) ? (s as TaskStatus) : "todo");
 const asPriority = (s: string): Priority => ((PRIORITIES as readonly string[]).includes(s) ? (s as Priority) : "medium");
 
-const AttachmentInput = z.object({
-  url: z
-    .string()
-    .max(2_000)
-    .refine((u) => /^(https?:\/\/|\/files\/[0-9a-f-]{36}$)/i.test(u), "Attach an uploaded file or an http(s) link"),
-  name: z.string().trim().min(1).max(200),
-  size: z.number().int().min(0).optional(),
-  mime: z.string().max(100).optional(),
-  external: z.boolean().optional(),
-});
-
 const Fields = {
   title: z.string().trim().min(1, "Give the task a title").max(300),
   description: z.string().max(20_000),
@@ -56,7 +46,7 @@ const Fields = {
   labels: z.array(z.string().trim().min(1).max(40)).max(20),
   start: Day.nullable(),
   due: Day.nullable(),
-  attachments: z.array(AttachmentInput).max(50),
+  attachments: Attachments,
   parentId: z.string().max(64).nullable(),
 };
 
@@ -95,8 +85,10 @@ const toView = (t: typeof tasks.$inferSelect, extra: { createdByName: string | n
   ...extra,
 });
 
-const commentCount = sql<number>`(select count(*)::int from ${workComments} c where c.target_type = 'task' and c.target_id = ${tasks.id})`;
-const creatorName = sql<string | null>`(select name from ${users} u where u.id = ${tasks.createdBy})`;
+// Outer columns are spelled out: in a single-table select Drizzle leaves them unqualified, and inside the
+// subquery an unqualified "id" would mean the subquery's own table.
+const commentCount = sql<number>`(select count(*)::int from ${workComments} c where c.target_type = 'task' and c.target_id = "tasks"."id")`;
+const creatorName = sql<string | null>`(select name from ${users} u where u.id = "tasks"."created_by")`;
 
 export async function listTasks(db: Executor, actor: Actor, projectId: string): Promise<TaskView[]> {
   await loadProject(db, actor, projectId);

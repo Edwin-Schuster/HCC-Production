@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 import type { Executor } from "@/db";
 import { files } from "@/db/schema";
 import { forbidden, invalid, notFound } from "@/server/errors";
@@ -42,6 +43,19 @@ export async function uploadImage(db: Executor, actor: Actor, name: string, byte
   await db.insert(files).values({ id, workspaceId: actor.workspaceId, name: name.slice(0, 200) || "image", mime, size: bytes.byteLength, storageKey, createdBy: actor.userId });
   return { id, url: `/files/${id}`, mime, size: bytes.byteLength };
 }
+
+/** An attached file (uploaded here) or a link to one elsewhere. */
+export const AttachmentSchema = z.object({
+  url: z
+    .string()
+    .max(2_000)
+    .refine((u) => /^(https?:\/\/|\/files\/[0-9a-f-]{36}$)/i.test(u), "Attach an uploaded file or an http(s) link"),
+  name: z.string().trim().min(1).max(200),
+  size: z.number().int().min(0).optional(),
+  mime: z.string().max(100).optional(),
+  external: z.boolean().optional(),
+});
+export const Attachments = z.array(AttachmentSchema).max(50);
 
 export const MAX_ATTACHMENT_BYTES = Number(process.env.MAX_UPLOAD_MB ?? 25) * 1024 * 1024;
 
