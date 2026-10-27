@@ -2,6 +2,7 @@
 
 import { createReactBlockSpec } from "@blocknote/react";
 import { Film, Globe, Pin, PinOff, Puzzle, Upload } from "lucide-react";
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { videoEmbedUrl } from "@/blocks/media";
 import { SopBody } from "@/blocks/render";
@@ -180,7 +181,7 @@ export const SnippetBlock = createReactBlockSpec(
               </select>
             ) : (
               <span className="text-muted">
-                No snippets yet. Create them under <a href="/snippets" className="underline underline-offset-2">Snippets</a>.
+                No snippets yet. Create them under <Link href="/snippets" className="underline underline-offset-2">Snippets</Link>.
               </span>
             )}
           </div>
