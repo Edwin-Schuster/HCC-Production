@@ -13,6 +13,8 @@ export type FolderView = {
   codePrefix: string;
   visibility: Visibility;
   position: number;
+  /** Approvals a draft needs before it can be published (this folder's own setting). */
+  requiredApprovals: number;
   /** Top-level ancestor, used as the "department" filter. */
   departmentId: string;
   depth: number;
@@ -31,7 +33,7 @@ export async function listFolders(db: Executor, actor: Actor): Promise<FolderVie
     for (const r of byParent.get(parentId) ?? []) {
       if (!canViewFolder(actor, r.visibility)) continue; // hidden folders hide their subtree too
       const departmentId = dept ?? r.id;
-      out.push({ id: r.id, name: r.name, parentId: r.parentId, codePrefix: r.codePrefix, visibility: r.visibility, position: r.position, departmentId, depth });
+      out.push({ id: r.id, name: r.name, parentId: r.parentId, codePrefix: r.codePrefix, visibility: r.visibility, requiredApprovals: r.requiredApprovals, position: r.position, departmentId, depth });
       visit(r.id, depth + 1, departmentId);
     }
   };
@@ -63,7 +65,21 @@ export const FolderInput = z.object({
     .regex(/^[A-Z0-9]{2,8}$/, "Code prefix must be 2–8 letters or digits, like AUD"),
   visibility: z.enum(["public", "members", "editors"]).default("members"),
   parentId: z.string().max(64).nullable().default(null),
+  requiredApprovals: z.number().int().min(0).max(5).default(0),
 });
+
+/** A folder needs the most approvals asked for by it or any folder it sits inside. */
+export async function effectiveRequiredApprovals(db: Executor, folderId: string): Promise<number> {
+  let required = 0;
+  let id: string | null = folderId;
+  for (let depth = 0; id && depth < 20; depth++) {
+    const [f]: { parentId: string | null; requiredApprovals: number }[] = await db.select({ parentId: folders.parentId, requiredApprovals: folders.requiredApprovals }).from(folders).where(eq(folders.id, id)).limit(1);
+    if (!f) break;
+    required = Math.max(required, f.requiredApprovals);
+    id = f.parentId;
+  }
+  return required;
+}
 
 export async function createFolder(db: Executor, actor: Actor, input: z.input<typeof FolderInput>) {
   if (!canManageFolders(actor)) throw forbidden("Only admins can create folders.");

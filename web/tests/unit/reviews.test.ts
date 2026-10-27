@@ -42,7 +42,7 @@ describe("review reminders", () => {
     const { sop } = await publishedSop("Reminder test", editor.userId!);
     const due = new Date(Date.now() + 3 * day);
     await t.db.update(sops).set({ nextReviewAt: due }).where(eq(sops.id, sop.id));
-    const mine = () => t.db.select().from(notifications).where(eq(notifications.userId, editor.userId!));
+    const mine = async () => (await t.db.select().from(notifications).where(eq(notifications.userId, editor.userId!))).filter((n) => n.kind.startsWith("review_"));
 
     await sweepReviewReminders(t.db, new Date());
     await sweepReviewReminders(t.db, new Date()); // repeated sweeps are no-ops

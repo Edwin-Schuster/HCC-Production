@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
 
-type Folder = { id: string; name: string; parentId: string | null; codePrefix: string; visibility: "public" | "members" | "editors"; depth: number; count: number };
+type Folder = { id: string; name: string; parentId: string | null; codePrefix: string; visibility: "public" | "members" | "editors"; requiredApprovals: number; depth: number; count: number };
 const VIS = { public: "Anyone, signed in or not", members: "Signed-in team members", editors: "Editors and admins only" } as const;
 
 export function FolderManager({ folders }: { folders: Folder[] }) {
@@ -29,6 +29,11 @@ export function FolderManager({ folders }: { folders: Folder[] }) {
           <li key={f.id} className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0" style={{ paddingLeft: 16 + f.depth * 20 }}>
             <span className="min-w-0 flex-1 truncate text-[14px] text-fg-hi">{f.name}</span>
             <span className="font-mono text-xs text-muted">SOP-{f.codePrefix}</span>
+            {f.requiredApprovals > 0 && (
+              <Badge tone="info" className="hidden sm:inline-flex">
+                {f.requiredApprovals} approval{f.requiredApprovals === 1 ? "" : "s"}
+              </Badge>
+            )}
             <Badge tone={f.visibility === "public" ? "good" : f.visibility === "editors" ? "warn" : "neutral"}>{f.visibility}</Badge>
             <span className="w-14 text-right font-mono text-xs text-faint">{f.count} SOP{f.count === 1 ? "" : "s"}</span>
             <Button size="icon-sm" variant="ghost" aria-label={`Edit ${f.name}`} onClick={() => setEditing(f)}>
@@ -65,6 +70,7 @@ export function FolderManager({ folders }: { folders: Folder[] }) {
                 codePrefix: String(fd.get("prefix")),
                 visibility: String(fd.get("visibility")) as Folder["visibility"],
                 parentId: (fd.get("parent") as string) || null,
+                requiredApprovals: Number(fd.get("approvals") ?? 0),
               };
               start(async () => {
                 const res = current ? await updateFolderAction(current.id, input) : await createFolderAction(input);
@@ -86,6 +92,16 @@ export function FolderManager({ folders }: { folders: Folder[] }) {
                 {Object.entries(VIS).map(([v, l]) => (
                   <option key={v} value={v}>
                     {l}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Approvals before publishing" htmlFor="approvals" hint="Editors other than the author must approve a draft before it can be published. Sub-folders use the highest number set above them.">
+              <Select id="approvals" name="approvals" defaultValue={String(current?.requiredApprovals ?? 0)}>
+                <option value="0">None: editors publish directly</option>
+                {[1, 2, 3].map((n) => (
+                  <option key={n} value={n}>
+                    {n} approval{n === 1 ? "" : "s"}
                   </option>
                 ))}
               </Select>

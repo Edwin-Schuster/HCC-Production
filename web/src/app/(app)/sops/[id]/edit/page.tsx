@@ -6,6 +6,8 @@ import { getDb } from "@/db";
 import { AppError } from "@/server/errors";
 import { getEditorState, getSopDocument, listTeamRoles } from "@/server/services/sops";
 import { snippetCatalog } from "@/server/services/snippets";
+import { getApprovalState } from "@/server/services/approvals";
+import { listMembers } from "@/server/services/workspace";
 import { EditorLoader } from "@/editor/loader";
 import { Empty } from "@/components/page";
 import { Button } from "@/components/ui/button";
@@ -45,7 +47,8 @@ async function Editor({ params }: { params: PageProps<"/sops/[id]/edit">["params
     );
   }
   const [state, doc, roles] = data;
-  const snippets = await snippetCatalog(db, actor, state.blocks);
+  const [snippets, approvals, members] = await Promise.all([snippetCatalog(db, actor, state.blocks), getApprovalState(db, actor, id), listMembers(db, actor)]);
+  const approvers = members.filter((m) => m.id !== actor.userId && (m.role === "editor" || m.role === "admin")).map((m) => ({ id: m.id, name: m.name }));
   return (
     <EditorLoader
       sopId={id}
@@ -55,6 +58,8 @@ async function Editor({ params }: { params: PageProps<"/sops/[id]/edit">["params
       initial={state}
       roles={roles}
       snippets={snippets}
+      approvals={{ required: approvals.required, validApprovals: approvals.validApprovals, draftUpdatedAt: approvals.draftUpdatedAt, reviewRequestedAt: approvals.reviewRequestedAt }}
+      approvers={approvers}
     />
   );
 }

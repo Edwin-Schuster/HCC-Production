@@ -67,6 +67,7 @@ async function History({ params }: { params: PageProps<"/sops/[id]/history">["pa
                 </div>
                 <div className="mt-1 text-xs text-muted">
                   <LocalDate iso={v.publishedAt} withTime /> · {v.publishedByName} · “{v.title}”
+                  {v.approvedByNames.length > 0 && <> · approved by {v.approvedByNames.join(", ")}</>}
                 </div>
               </Link>
             </li>

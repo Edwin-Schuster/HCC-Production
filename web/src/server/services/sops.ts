@@ -21,6 +21,8 @@ import { audit } from "./audit";
 import { reviewState, type ReviewState } from "@/lib/review";
 import { requireFolder } from "./folders";
 import { snippetResolver } from "./snippets";
+import { approvalsForPublish } from "./approvals";
+import { notify } from "./notifications";
 import { expandSnippets } from "@/blocks/snippets";
 import type { SnippetInfo } from "@/blocks/render";
 
@@ -74,7 +76,7 @@ export const UpdateMetaInput = z.object({
 type SopRow = typeof sops.$inferSelect;
 type VersionRow = typeof sopVersions.$inferSelect;
 
-async function loadSop(db: Executor, actor: Actor, sopId: string, opts: { forUpdate?: boolean } = {}) {
+export async function loadSop(db: Executor, actor: Actor, sopId: string, opts: { forUpdate?: boolean } = {}) {
   const q = db
     .select({ sop: sops, visibility: folders.visibility, folderName: folders.name })
     .from(sops)
@@ -91,7 +93,7 @@ export async function loadBlocks(db: Executor, versionId: string): Promise<Block
   return buildTree(rows, (r) => ({ id: r.id, key: r.key, type: r.type as BlockNode["type"], content: r.content as never }));
 }
 
-async function draftOf(db: Executor, sopId: string): Promise<VersionRow | undefined> {
+export async function draftOf(db: Executor, sopId: string): Promise<VersionRow | undefined> {
   const [v] = await db.select().from(sopVersions).where(and(eq(sopVersions.sopId, sopId), isNull(sopVersions.publishedAt))).limit(1);
   return v;
 }
@@ -312,6 +314,8 @@ export async function listVersions(db: Executor, actor: Actor, sopId: string) {
     .leftJoin(users, eq(users.id, sopVersions.publishedBy))
     .where(and(eq(sopVersions.sopId, sop.id), isNotNull(sopVersions.publishedAt)))
     .orderBy(desc(sopVersions.versionNumber));
+  const approverIds = [...new Set(rows.flatMap((r) => r.v.approvedBy.map((a) => a.userId)))];
+  const names = new Map(approverIds.length ? (await db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, approverIds))).map((u) => [u.id, u.name]) : []);
   return rows.map(({ v, publisher }) => ({
     id: v.id,
     number: v.versionNumber!,
@@ -319,6 +323,7 @@ export async function listVersions(db: Executor, actor: Actor, sopId: string) {
     publishedAt: v.publishedAt!.toISOString(),
     publishedByName: publisher ?? "Unknown",
     changeSummary: v.changeSummary ?? "",
+    approvedByNames: v.approvedBy.map((a) => names.get(a.userId) ?? "Unknown"),
     isCurrent: v.id === sop.currentVersionId,
   }));
 }
@@ -441,8 +446,8 @@ export async function saveDraft(db: Executor, actor: Actor, sopId: string, input
       .set({ title: data.title, summary: data.summary, updatedAt: now, updatedBy: actor.userId })
       .where(eq(sopVersions.id, draft.id))
       .returning({ updatedAt: sopVersions.updatedAt });
-    // A never-published SOP shows its working title in the library.
-    if (!sop.currentVersionId) await tx.update(sops).set({ title: data.title, summary: data.summary, updatedAt: now }).where(eq(sops.id, sop.id));
+    // A never-published SOP shows its working title in the library; any edit makes earlier approvals stale.
+    if (!sop.currentVersionId) await tx.update(sops).set({ title: data.title, summary: data.summary, updatedAt: now, ...(sop.status === "approved" ? { status: "in_review" as const } : {}) }).where(eq(sops.id, sop.id));
     return { updatedAt: saved.updatedAt.toISOString() };
   });
 }
@@ -459,12 +464,14 @@ export async function publishDraft(db: Executor, actor: Actor, sopId: string, in
     if (!tree.length) throw invalid("Add some content before publishing.");
     DocumentSchema.parse(tree); // never freeze invalid content
 
+    const approvedBy = await approvalsForPublish(tx, sop.folderId, draft);
+
     const [{ max }] = await tx.select({ max: sql<number | null>`max(${sopVersions.versionNumber})` }).from(sopVersions).where(eq(sopVersions.sopId, sop.id));
     const number = Number(max ?? 0) + 1;
     const now = new Date();
     await tx
       .update(sopVersions)
-      .set({ versionNumber: number, publishedAt: now, publishedBy: actor.userId, changeSummary, updatedAt: now })
+      .set({ versionNumber: number, publishedAt: now, publishedBy: actor.userId, changeSummary, approvedBy, updatedAt: now })
       .where(and(eq(sopVersions.id, draft.id), isNull(sopVersions.publishedAt)));
     await tx
       .update(sops)
@@ -477,7 +484,16 @@ export async function publishDraft(db: Executor, actor: Actor, sopId: string, in
         updatedAt: now,
       })
       .where(eq(sops.id, sop.id));
-    await audit(tx, actor, "sop.published", { type: "sop", id: sop.id }, { versionId: draft.id, versionNumber: number, changeSummary });
+    await audit(tx, actor, "sop.published", { type: "sop", id: sop.id }, { versionId: draft.id, versionNumber: number, changeSummary, approvedBy });
+    await notify(tx, {
+      workspaceId: actor.workspaceId,
+      userIds: [sop.ownerId, draft.reviewRequestedBy, ...approvedBy.map((a) => a.userId)],
+      actorId: actor.userId,
+      kind: "published",
+      title: `${actor.name} published v${number} of ${draft.title}`,
+      body: changeSummary,
+      link: `/sops/${sop.id}`,
+    });
     return { versionId: draft.id, versionNumber: number };
   });
 }

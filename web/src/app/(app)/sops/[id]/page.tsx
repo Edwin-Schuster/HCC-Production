@@ -8,6 +8,8 @@ import { getContext } from "@/server/context";
 import { AppError } from "@/server/errors";
 import { listFolders } from "@/server/services/folders";
 import { getSopDocument } from "@/server/services/sops";
+import { getApprovalState } from "@/server/services/approvals";
+import { ReviewPanel } from "@/components/sop/review-panel";
 import { listMembers } from "@/server/services/workspace";
 import { Empty } from "@/components/page";
 import { Button } from "@/components/ui/button";
@@ -65,6 +67,8 @@ async function Reader({ params, searchParams }: { params: PageProps<"/sops/[id]"
   const viewingOld = !version.isDraft && version.id !== sop.currentVersionId;
   const versionQuery = version.isDraft ? (sop.currentVersionId ? "draft=1" : "") : viewingOld ? `v=${version.number}` : "";
   const [members, folders] = doc.canEdit ? await Promise.all([listMembers(db, actor), listFolders(db, actor)]) : [[], []];
+  const approvals = version.isDraft && doc.canEdit ? await getApprovalState(db, actor, sop.id) : null;
+  const showApprovals = approvals && (approvals.required > 0 || approvals.decisions.length > 0 || approvals.reviewRequestedAt);
 
   return (
     <div className="mx-auto flex w-full max-w-[1120px] gap-12 px-[max(16px,env(safe-area-inset-left))] py-6 sm:px-8 sm:py-10">
@@ -133,6 +137,15 @@ async function Reader({ params, searchParams }: { params: PageProps<"/sops/[id]"
             />
           }
         />
+
+        {showApprovals && (
+          <ReviewPanel
+            sopId={sop.id}
+            state={approvals}
+            compareHref={sop.currentVersionId ? `/sops/${sop.id}/compare?from=${sop.versionNumber}&to=draft` : null}
+            lastEditorName={members.find((m) => m.id === approvals.lastEditorId)?.name ?? null}
+          />
+        )}
 
         {!version.isDraft && version.changeSummary && (
           <p className="mt-4 text-[13px] text-muted">

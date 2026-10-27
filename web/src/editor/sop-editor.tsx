@@ -4,12 +4,13 @@ import "@blocknote/mantine/style.css";
 import "./editor.css";
 import { BlockNoteView } from "@blocknote/mantine";
 import { DragHandleMenu, RemoveBlockItem, SideMenu, SideMenuController, SuggestionMenuController, useCreateBlockNote } from "@blocknote/react";
-import { ArrowLeft, Eye, MoreHorizontal, Pencil, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, Eye, MoreHorizontal, Pencil, Send, ShieldCheck, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { discardDraftAction, publishAction } from "@/app/actions/sops";
+import { requestReviewAction } from "@/app/actions/approvals";
 import { SopBody } from "@/blocks/render";
 import { DocumentSchema, type BlockNode } from "@/blocks/schema";
 import { EDITOR_COMMAND, type EditorCommand } from "@/components/shell/palette-bus";
@@ -42,6 +43,9 @@ export type EditorProps = {
   };
   roles: { id: string; name: string }[];
   snippets: SnippetCatalogItem[];
+  approvals: { required: number; validApprovals: number; draftUpdatedAt: string | null; reviewRequestedAt: string | null };
+  /** Editors and admins who could approve (not including the current user). */
+  approvers: { id: string; name: string }[];
 };
 
 type SaveState = "clean" | "dirty" | "saving" | "saved" | "offline" | "error" | "conflict";
@@ -71,7 +75,7 @@ function clearLocal(id: string) {
   } catch {}
 }
 
-export default function SopEditor({ sopId, documentCode, folderName, published, initial, roles, snippets }: EditorProps) {
+export default function SopEditor({ sopId, documentCode, folderName, published, initial, roles, snippets, approvals, approvers }: EditorProps) {
   const router = useRouter();
   const keys = useMemo(() => keyMap(initial.blocks), [initial.blocks]);
   const images = useMemo(() => imageExtras(initial.blocks), [initial.blocks]);
@@ -106,6 +110,7 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
   const [savedAt, setSavedAt] = useState<string | null>(initial.draftUpdatedAt);
   const [preview, setPreview] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [requesting, setRequesting] = useState(false);
   // The editor only renders in the browser (ssr: false), so local storage is readable on the first render.
   const [recovered, setRecovered] = useState<LocalDraft | null>(() => {
     const local = readLocal(sopId);
@@ -297,6 +302,10 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
     conflict: "Conflict",
   }[state];
 
+  // Approvals only count for the exact draft they were given on; once this editor saves, they're stale.
+  const approved = savedAt && savedAt === approvals.draftUpdatedAt ? approvals.validApprovals : 0;
+  const needsApproval = approvals.required > 0 && approved < approvals.required;
+
   return (
     <div className="min-h-dvh">
       <div className="sticky top-12 z-10 border-b border-line bg-bg/90 backdrop-blur lg:top-0">
@@ -342,7 +351,23 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
               </MenuContent>
             </Menu>
           )}
-          <Button size="sm" variant="primary" onClick={() => setPublishing(true)}>
+          {approvals.required > 0 && (
+            <>
+              <span className={cn("hidden rounded-[4px] px-1.5 font-mono text-xs leading-[18px] sm:inline", needsApproval ? "bg-wash text-fg-2" : "bg-good-soft text-good")} title="Approvals on this exact draft">
+                {approved}/{approvals.required} approved
+              </span>
+              <Button size="sm" variant={needsApproval ? "primary" : "ghost"} onClick={() => setRequesting(true)}>
+                <ShieldCheck /> <span className="hidden sm:inline">{approvals.reviewRequestedAt ? "Ask again" : "Request review"}</span>
+              </Button>
+            </>
+          )}
+          <Button
+            size="sm"
+            variant={needsApproval ? "secondary" : "primary"}
+            disabled={needsApproval}
+            title={needsApproval ? `Needs ${approvals.required} approval${approvals.required === 1 ? "" : "s"} on this draft before publishing` : undefined}
+            onClick={() => setPublishing(true)}
+          >
             <Send /> Publish
           </Button>
         </div>
@@ -464,6 +489,26 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
         )}
       </div>
 
+      <RequestReviewDialog
+        open={requesting}
+        onOpenChange={setRequesting}
+        approvers={approvers}
+        onSubmit={async (approverIds, message) => {
+          const ok = await save({ force: false });
+          if (!ok && dirty.current) {
+            toast.error("Save failed, so no review was requested.");
+            return false;
+          }
+          const res = await requestReviewAction(sopId, { approverIds, message });
+          if (!res.ok) {
+            toast.error(res.error);
+            return false;
+          }
+          toast(approverIds.length ? `Review requested from ${approverIds.length} ${approverIds.length === 1 ? "person" : "people"}` : "Review requested from all editors");
+          return true;
+        }}
+      />
+
       <PublishDialog
         open={publishing}
         onOpenChange={setPublishing}
@@ -520,6 +565,65 @@ function TitleInput({ value, onChange }: { value: string; onChange: (v: string) 
 function PreviewPane({ blocks, resolve, roles }: { blocks: BlockNode[]; resolve: ReturnType<typeof catalogResolver>; roles: { id: string; name: string }[] }) {
   const expanded = expandSnippets(blocks, resolve);
   return <SopBody blocks={expanded.blocks} snippets={expanded.snippets} roles={Object.fromEntries(roles.map((r) => [r.id, r.name]))} />;
+}
+
+function RequestReviewDialog({
+  open,
+  onOpenChange,
+  approvers,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  approvers: { id: string; name: string }[];
+  onSubmit: (approverIds: string[], message: string) => Promise<boolean>;
+}) {
+  const [picked, setPicked] = useState<string[]>([]);
+  const [message, setMessage] = useState("");
+  const [pending, start] = useTransition();
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent title="Request review" description="Reviewers get a notification with a link to this draft. Approvals count only for the draft as it is now.">
+        <form
+          className="grid gap-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            start(async () => {
+              if (await onSubmit(picked, message)) {
+                setMessage("");
+                onOpenChange(false);
+              }
+            });
+          }}
+        >
+          <fieldset className="grid gap-1.5">
+            <legend className="mb-1.5 text-[13px] font-[510] text-fg-hi">Reviewers</legend>
+            {approvers.length === 0 && <p className="text-[13px] text-muted">There are no other editors yet. Add one under People.</p>}
+            <div className="grid max-h-56 gap-1 overflow-y-auto">
+              {approvers.map((a) => (
+                <label key={a.id} className="flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-[14px] hover:bg-wash-2">
+                  <input type="checkbox" checked={picked.includes(a.id)} onChange={(e) => setPicked(e.target.checked ? [...picked, a.id] : picked.filter((x) => x !== a.id))} />
+                  {a.name}
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-faint">Leave everyone unticked to ask all editors.</p>
+          </fieldset>
+          <Field label="Message" htmlFor="review-message" hint="Optional. What should reviewers look at?">
+            <Textarea id="review-message" value={message} onChange={(e) => setMessage(e.target.value)} rows={2} maxLength={1000} />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={pending || approvers.length === 0}>
+              {pending ? "Sending…" : "Request review"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function PublishDialog({ open, onOpenChange, nextVersion, onPublish }: { open: boolean; onOpenChange: (o: boolean) => void; nextVersion: number; onPublish: (summary: string) => Promise<boolean> }) {

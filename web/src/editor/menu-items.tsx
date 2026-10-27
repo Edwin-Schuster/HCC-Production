@@ -29,11 +29,16 @@ export function slashItems(editor: SopEditor, opts: { snippets?: boolean } = {})
     { title: "Warning callout", subtext: "Something that could go wrong", aliases: ["warning", "caution", "callout"], group: "SOP", icon: <AlertTriangle size={18} />, onItemClick: insert({ type: "callout", props: { variant: "warning" } }) },
     { title: "Danger callout", subtext: "Risk to people or equipment", aliases: ["danger", "stop", "callout"], group: "SOP", icon: <OctagonAlert size={18} />, onItemClick: insert({ type: "callout", props: { variant: "danger" } }) },
     { title: "Snippet", subtext: "Insert a shared block of steps used in several SOPs", aliases: ["snippet", "reuse", "shared", "include"], group: "SOP", icon: <Puzzle size={18} />, onItemClick: insert({ type: "snippet" }) },
+  ];
+  // Grouped with BlockNote's own Media items (the menu needs each group's items to be adjacent).
+  const media: DefaultReactSuggestionItem[] = [
     { title: "Video", subtext: "YouTube, Vimeo or an uploaded video", aliases: ["video", "youtube", "vimeo", "movie"], group: "Media", icon: <Film size={18} />, onItemClick: insert({ type: "video" }) },
     { title: "Embed", subtext: "Show another web page inside the SOP", aliases: ["embed", "iframe", "web", "page"], group: "Media", icon: <Globe size={18} />, onItemClick: insert({ type: "embed" }) },
   ];
   const builtIn = getDefaultReactSlashMenuItems(editor).filter((i) => !/emoji|video|audio|file|quote|toggle/i.test(i.title));
-  return [...ours.filter((i) => opts.snippets !== false || i.title !== "Snippet"), ...builtIn];
+  const lastMedia = builtIn.findLastIndex((i) => i.group === "Media");
+  const withMedia = lastMedia >= 0 ? [...builtIn.slice(0, lastMedia + 1), ...media, ...builtIn.slice(lastMedia + 1)] : [...builtIn, ...media];
+  return [...ours.filter((i) => opts.snippets !== false || i.title !== "Snippet"), ...withMedia];
 }
 
 export const getSlashItems = (editor: SopEditor, opts?: { snippets?: boolean }) => async (query: string) => filterSuggestionItems(slashItems(editor, opts), query);

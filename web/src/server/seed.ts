@@ -38,7 +38,7 @@ export async function seedDemoContent(db: Executor, workspaceId: string) {
       { workspaceId, name: "Sunday Service", codePrefix: "SVC", visibility: "public", position: 1 },
       { workspaceId, name: "Audio", codePrefix: "AUD", visibility: "members", position: 2 },
       { workspaceId, name: "Video & Stream", codePrefix: "VID", visibility: "members", position: 3 },
-      { workspaceId, name: "Maintenance", codePrefix: "MNT", visibility: "editors", position: 4 },
+      { workspaceId, name: "Maintenance", codePrefix: "MNT", visibility: "editors", requiredApprovals: 1, position: 4 },
     ])
     .returning();
   const folder = (name: string) => f.find((x) => x.name === name)!.id;
