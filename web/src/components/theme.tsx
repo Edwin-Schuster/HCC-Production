@@ -1,14 +1,28 @@
 "use client";
 
 import { Moon, Sun } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 
 const KEY = "hcc-theme";
 
+function subscribe(onChange: () => void) {
+  const mo = new MutationObserver(onChange);
+  mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  return () => mo.disconnect();
+}
+
+/** The current theme from <html data-theme>; null while server rendering. */
+export function useTheme(): "dark" | "light" | null {
+  return useSyncExternalStore(
+    subscribe,
+    () => (document.documentElement.dataset.theme === "light" ? "light" : "dark"),
+    () => null,
+  );
+}
+
 export function ThemeToggle({ className }: { className?: string }) {
-  const [theme, setTheme] = useState<"dark" | "light" | null>(null);
-  useEffect(() => setTheme((document.documentElement.dataset.theme as "dark" | "light") ?? "dark"), []);
+  const theme = useTheme();
   const next = theme === "light" ? "dark" : "light";
   return (
     <Button
@@ -22,7 +36,6 @@ export function ThemeToggle({ className }: { className?: string }) {
         try {
           localStorage.setItem(KEY, next);
         } catch {}
-        setTheme(next);
       }}
     >
       {theme === "light" ? <Moon /> : <Sun />}

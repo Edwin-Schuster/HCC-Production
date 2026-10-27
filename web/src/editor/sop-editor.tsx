@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Kbd, Textarea } from "@/components/ui/field";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
+import { useTheme } from "@/components/theme";
 import { cn } from "@/lib/utils";
 import { fromBlockNote, keyMap, toBlockNote, type BNBlock } from "./convert";
 import { CollapseItem, DuplicateItem, getSlashItems } from "./menu-items";
@@ -100,8 +101,15 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
   const [savedAt, setSavedAt] = useState<string | null>(initial.draftUpdatedAt);
   const [preview, setPreview] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [recovered, setRecovered] = useState<LocalDraft | null>(null);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  // The editor only renders in the browser (ssr: false), so local storage is readable on the first render.
+  const [recovered, setRecovered] = useState<LocalDraft | null>(() => {
+    const local = readLocal(sopId);
+    if (!local) return null;
+    const serverTime = initial.draftUpdatedAt ? Date.parse(initial.draftUpdatedAt) : 0;
+    const differs = JSON.stringify(local.blocks) !== JSON.stringify(initial.blocks) || local.title !== initial.title || local.summary !== initial.summary;
+    return local.at > serverTime && differs ? local : null;
+  });
+  const theme = useTheme() ?? "dark";
 
   // Server sync bookkeeping kept in refs so autosave never works from stale closures.
   const base = useRef({ updatedAt: initial.draftUpdatedAt, versionId: initial.baseVersionId });
@@ -110,7 +118,6 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
   const inFlight = useRef<Promise<boolean> | null>(null);
   const dirty = useRef(false);
 
-  latest.current = { title, summary };
 
   const snapshot = useCallback((): BlockNode[] => fromBlockNote(editor.document as unknown as BNBlock[], keys), [editor, keys]);
 
@@ -186,24 +193,14 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
     timer.current = setTimeout(() => void save(), AUTOSAVE_MS);
   }, [save, snapshot, sopId]);
 
-  // Roles, numbering, theme and local-draft recovery on mount.
+  // Roles and numbering on mount; drop a local copy that the server already has.
   useEffect(() => {
     storeFor(editor).set({ roles });
     renumber();
-    const local = readLocal(sopId);
-    if (local) {
-      const serverTime = initial.draftUpdatedAt ? Date.parse(initial.draftUpdatedAt) : 0;
-      const differs = JSON.stringify(local.blocks) !== JSON.stringify(initial.blocks) || local.title !== initial.title || local.summary !== initial.summary;
-      if (local.at > serverTime && differs) setRecovered(local);
-      else clearLocal(sopId);
-    }
-    const html = document.documentElement;
-    const sync = () => setTheme(html.dataset.theme === "light" ? "light" : "dark");
-    sync();
-    const mo = new MutationObserver(sync);
-    mo.observe(html, { attributes: true, attributeFilter: ["data-theme"] });
-    return () => mo.disconnect();
-  }, [editor, roles, renumber, sopId, initial]);
+    if (!recovered) clearLocal(sopId);
+    // Mount only: once the recovery banner is resolved, the local copy belongs to autosave.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, roles, renumber, sopId]);
 
   // Save when leaving: keepalive request plus the local copy as a fallback.
   useEffect(() => {

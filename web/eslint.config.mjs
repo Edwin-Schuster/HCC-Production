@@ -12,7 +12,17 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Bundled scripts
+    "dist/**",
   ]),
+  {
+    // Apostrophes in JSX text render fine; escaping them only hurts readability.
+    rules: {
+      "react/no-unescaped-entities": "off",
+      // `_name` marks a value destructured only to leave it out.
+      "@typescript-eslint/no-unused-vars": ["warn", { varsIgnorePattern: "^_", argsIgnorePattern: "^_" }],
+    },
+  },
 ]);
 
 export default eslintConfig;

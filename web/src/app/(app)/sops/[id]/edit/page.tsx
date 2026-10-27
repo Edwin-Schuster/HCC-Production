@@ -23,35 +23,35 @@ async function Editor({ params }: { params: PageProps<"/sops/[id]/edit">["params
   const { id } = await params;
   const actor = await requireRole("editor", `/sops/${id}/edit`);
   const db = await getDb();
+  let data;
   try {
-    const [state, doc, roles] = await Promise.all([getEditorState(db, actor, id), getSopDocument(db, actor, id), listTeamRoles(db, actor)]);
-    return (
-      <EditorLoader
-        sopId={id}
-        documentCode={doc.sop.documentCode}
-        folderName={doc.sop.folderName}
-        published={Boolean(doc.sop.currentVersionId)}
-        initial={state}
-        roles={roles}
-      />
-    );
+    data = await Promise.all([getEditorState(db, actor, id), getSopDocument(db, actor, id), listTeamRoles(db, actor)]);
   } catch (e) {
-    if (e instanceof AppError && e.status < 500) {
-      return (
-        <div className="mx-auto max-w-[720px] px-4 py-16">
-          <Empty
-            title="You can't edit this SOP"
-            action={
-              <Button asChild>
-                <Link href={`/sops/${id}`}>Back to the SOP</Link>
-              </Button>
-            }
-          >
-            {e.message}
-          </Empty>
-        </div>
-      );
-    }
-    throw e;
+    if (!(e instanceof AppError && e.status < 500)) throw e;
+    return (
+      <div className="mx-auto max-w-[720px] px-4 py-16">
+        <Empty
+          title="You can't edit this SOP"
+          action={
+            <Button asChild>
+              <Link href={`/sops/${id}`}>Back to the SOP</Link>
+            </Button>
+          }
+        >
+          {e.message}
+        </Empty>
+      </div>
+    );
   }
+  const [state, doc, roles] = data;
+  return (
+    <EditorLoader
+      sopId={id}
+      documentCode={doc.sop.documentCode}
+      folderName={doc.sop.folderName}
+      published={Boolean(doc.sop.currentVersionId)}
+      initial={state}
+      roles={roles}
+    />
+  );
 }

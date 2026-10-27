@@ -44,7 +44,12 @@ export function descendantIds(all: FolderView[], rootId: string): Set<string> {
   let grew = true;
   while (grew) {
     grew = false;
-    for (const f of all) if (f.parentId && ids.has(f.parentId) && !ids.has(f.id)) (ids.add(f.id), (grew = true));
+    for (const f of all) {
+      if (f.parentId && ids.has(f.parentId) && !ids.has(f.id)) {
+        ids.add(f.id);
+        grew = true;
+      }
+    }
   }
   return ids;
 }

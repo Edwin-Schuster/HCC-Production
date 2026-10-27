@@ -18,9 +18,11 @@ const MIGRATIONS = process.env.MIGRATIONS_DIR ?? path.join(process.cwd(), "drizz
 
 /**
  * DATABASE_URL=postgres://... uses node-postgres.
- * DATABASE_URL=pglite://./.data/pglite (default) or pglite://memory uses embedded PGlite (dev/tests).
+ * DATABASE_URL=pglite://./.data/pglite (default; $DATA_DIR/pglite when DATA_DIR is set) or pglite://memory uses embedded PGlite.
  */
-export async function createDb(url = process.env.DATABASE_URL ?? "pglite://./.data/pglite"): Promise<{ db: DB; close: () => Promise<void> }> {
+const DEFAULT_URL = `pglite://${process.env.DATA_DIR ? path.join(process.env.DATA_DIR, "pglite") : "./.data/pglite"}`;
+
+export async function createDb(url = process.env.DATABASE_URL || DEFAULT_URL): Promise<{ db: DB; close: () => Promise<void> }> {
   if (url.startsWith("postgres")) {
     const { Pool } = await import("pg");
     const { drizzle } = await import("drizzle-orm/node-postgres");
