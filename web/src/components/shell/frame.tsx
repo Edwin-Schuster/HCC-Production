@@ -2,8 +2,7 @@
 
 import { Menu as MenuIcon, Search } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Dialog as D } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/field";
@@ -12,8 +11,6 @@ import { openPalette } from "./palette-bus";
 /** Desktop: fixed left rail. Phone: top bar + slide-over nav. */
 export function ShellFrame({ nav, children }: { nav: ReactNode; children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const pathname = usePathname();
-  useEffect(() => setOpen(false), [pathname]);
   return (
     <div className="min-h-dvh lg:pl-[232px]">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[232px] flex-col border-r border-line bg-bg lg:flex print:hidden">{nav}</aside>
@@ -29,7 +26,10 @@ export function ShellFrame({ nav, children }: { nav: ReactNode; children: ReactN
             <D.Content className="fixed inset-y-0 left-0 z-50 flex w-[min(84vw,300px)] flex-col border-r border-line bg-bg shadow-lg focus:outline-none">
               <D.Title className="sr-only">Navigation</D.Title>
               <D.Description className="sr-only">Folders and pages</D.Description>
-              {nav}
+              {/* Close the slide-over when any link inside it is followed. */}
+              <div className="contents" onClickCapture={(e) => (e.target as HTMLElement).closest("a") && setOpen(false)}>
+                {nav}
+              </div>
             </D.Content>
           </D.Portal>
         </D.Root>

@@ -6,11 +6,6 @@ import { Button } from "@/components/ui/button";
 
 const KEY = "hcc-theme";
 
-/** Applies the saved theme before first paint (see Next's "preventing flash" guide). */
-export function ThemeScript() {
-  return <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem("${KEY}");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}` }} />;
-}
-
 export function ThemeToggle({ className }: { className?: string }) {
   const [theme, setTheme] = useState<"dark" | "light" | null>(null);
   useEffect(() => setTheme((document.documentElement.dataset.theme as "dark" | "light") ?? "dark"), []);

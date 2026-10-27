@@ -47,6 +47,8 @@ export const SaveDraftInput = z.object({
   blocks: DocumentSchema,
   /** The draft's updatedAt the client last saw. A newer server copy means someone else saved. */
   baseUpdatedAt: z.string().datetime().nullable().optional(),
+  /** When no draft exists yet: the published version the client started from. */
+  baseVersionId: z.string().max(64).nullable().optional(),
   force: z.boolean().optional(),
 });
 
@@ -374,14 +376,49 @@ export async function getOrCreateDraft(db: Executor, actor: Actor, sopId: string
   });
 }
 
+export type EditorState = {
+  draftExists: boolean;
+  draftUpdatedAt: string | null;
+  baseVersionId: string | null;
+  baseVersionNumber: number | null;
+  title: string;
+  summary: string;
+  blocks: BlockNode[];
+};
+
+/** What the editor opens with. Reads only: the draft is created by the first save. */
+export async function getEditorState(db: Executor, actor: Actor, sopId: string): Promise<EditorState> {
+  const { sop, visibility } = await loadSop(db, actor, sopId);
+  if (!canEditSop(actor, sop, visibility)) throw forbidden(sop.status === "retired" ? "Restore this SOP before editing it." : "You can't edit this SOP.");
+  const draft = await draftOf(db, sop.id);
+  const [current] = sop.currentVersionId ? await db.select().from(sopVersions).where(eq(sopVersions.id, sop.currentVersionId)).limit(1) : [];
+  if (draft) {
+    return { draftExists: true, draftUpdatedAt: draft.updatedAt.toISOString(), baseVersionId: sop.currentVersionId, baseVersionNumber: current?.versionNumber ?? null, title: draft.title, summary: draft.summary, blocks: await loadBlocks(db, draft.id) };
+  }
+  return {
+    draftExists: false,
+    draftUpdatedAt: null,
+    baseVersionId: sop.currentVersionId,
+    baseVersionNumber: current?.versionNumber ?? null,
+    title: current?.title ?? sop.title,
+    summary: current?.summary ?? sop.summary,
+    blocks: current ? cloneWithNewIds(await loadBlocks(db, current.id)) : [],
+  };
+}
+
 export async function saveDraft(db: Executor, actor: Actor, sopId: string, input: z.input<typeof SaveDraftInput>) {
   const data = SaveDraftInput.parse(input);
   return db.transaction(async (tx) => {
     const { sop, visibility } = await loadSop(tx, actor, sopId, { forUpdate: true });
     if (!canEditSop(actor, sop, visibility)) throw forbidden("You can't edit this SOP.");
-    const draft = await draftOf(tx, sop.id);
-    if (!draft) throw conflict("This draft was published or discarded. Reload to start a new draft.", { reason: "no_draft" });
-    if (data.baseUpdatedAt && !data.force && draft.updatedAt.getTime() > new Date(data.baseUpdatedAt).getTime() + 1) {
+    let draft = await draftOf(tx, sop.id);
+    if (!draft) {
+      // The editor opens on the published version without creating a draft; the first save creates it,
+      // unless the client was editing an older draft (now published or discarded) or an outdated version.
+      if (data.baseUpdatedAt && !data.force) throw conflict("This draft was published or discarded by someone else. Reload to start a new draft.", { reason: "no_draft" });
+      if (!data.force && (data.baseVersionId ?? null) !== sop.currentVersionId) throw conflict("A newer version was published after you started editing. Reload to edit the latest version.", { reason: "outdated" });
+      [draft] = await tx.insert(sopVersions).values({ sopId: sop.id, title: data.title, summary: data.summary, updatedBy: actor.userId }).returning();
+    } else if (data.baseUpdatedAt && !data.force && draft.updatedAt.getTime() > new Date(data.baseUpdatedAt).getTime() + 1) {
       throw conflict("Someone else saved this draft after you opened it.", { reason: "stale", serverUpdatedAt: draft.updatedAt.toISOString(), updatedBy: draft.updatedBy });
     }
     await writeBlocks(tx, draft.id, data.blocks);

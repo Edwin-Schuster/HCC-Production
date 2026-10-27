@@ -1,0 +1,174 @@
+/* BlockNote themed with the app tokens. */
+.hcc-editor.bn-container,
+.bn-container[data-color-scheme] {
+  --bn-font-family: var(--font-sans);
+  --bn-border-radius: 6px;
+  --bn-border-radius-small: 4px;
+  --bn-border-radius-medium: 6px;
+  --bn-colors-editor-text: var(--fg-2);
+  --bn-colors-editor-background: transparent;
+  --bn-colors-menu-text: var(--fg-2);
+  --bn-colors-menu-background: var(--surface-2);
+  --bn-colors-tooltip-text: var(--fg-hi);
+  --bn-colors-tooltip-background: var(--surface-3);
+  --bn-colors-hovered-text: var(--fg-hi);
+  --bn-colors-hovered-background: var(--wash);
+  --bn-colors-selected-text: var(--fg-hi);
+  --bn-colors-selected-background: var(--surface-3);
+  --bn-colors-disabled-text: var(--faint);
+  --bn-colors-disabled-background: var(--wash-2);
+  --bn-colors-shadow: rgb(0 0 0 / 0.4);
+  --bn-colors-border: var(--line-2);
+  --bn-colors-side-menu: var(--faint);
+}
+
+.hcc-editor .bn-editor {
+  padding-inline: 54px 0;
+  font-size: 15px;
+  line-height: 1.65;
+  letter-spacing: -0.011em;
+}
+@media (max-width: 639px) {
+  .hcc-editor .bn-editor {
+    padding-inline: 28px 0;
+  }
+}
+.hcc-editor .bn-block-content[data-content-type="heading"] h1,
+.hcc-editor .bn-block-content[data-content-type="heading"] h2,
+.hcc-editor .bn-block-content[data-content-type="heading"] h3 {
+  color: var(--fg-hi);
+  font-weight: 510;
+  letter-spacing: -0.012em;
+}
+.hcc-editor [data-content-type="heading"][data-level="1"] { font-size: 24px; }
+.hcc-editor [data-content-type="heading"][data-level="2"] { font-size: 20px; }
+.hcc-editor [data-content-type="heading"][data-level="3"] { font-size: 16px; }
+.hcc-editor .bn-inline-content code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  border: 1px solid var(--line);
+  background: var(--wash);
+  border-radius: 4px;
+  padding: 0 4px;
+  color: var(--fg-hi);
+}
+.hcc-editor .bn-block-content[data-content-type="codeBlock"] {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+.hcc-editor .bn-block-content[data-content-type="codeBlock"] > pre { color: var(--fg-2); background: transparent; }
+.hcc-editor table td,
+.hcc-editor table th {
+  border-color: var(--line) !important;
+}
+.hcc-editor .bn-block-outer:not(:first-child) > .bn-block > .bn-block-content[data-content-type="step"] {
+  margin-top: 6px;
+}
+
+/* Step */
+.hcc-step {
+  width: 100%;
+  padding-block: 2px;
+}
+.hcc-step-num {
+  display: inline-flex;
+  min-width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 6px;
+  border: 1px solid var(--line-2);
+  background: var(--surface-2);
+  border-radius: 9999px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-hi);
+  font-variant-numeric: tabular-nums;
+}
+.bn-block-group .bn-block-group .hcc-step-num {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--fg-2);
+}
+.hcc-step-title {
+  font-size: 15.5px;
+  font-weight: 510;
+  line-height: 26px;
+  color: var(--fg-hi);
+}
+.hcc-step-title .bn-inline-content:has(> .ProseMirror-trailingBreak:only-child)::before {
+  content: "Step title";
+  color: var(--faint);
+  font-weight: 400;
+  pointer-events: none;
+  position: absolute;
+}
+.hcc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding-inline: 7px;
+  border-radius: 4px;
+  background: var(--wash);
+  color: var(--fg-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+.hcc-chip > svg { color: var(--muted); }
+.hcc-chip select { cursor: pointer; }
+.hcc-chip select option { background: var(--surface-2); color: var(--fg-2); }
+.hcc-chip-add {
+  background: transparent;
+  color: var(--faint);
+  border: 1px dashed var(--line-2);
+}
+.hcc-chip-add:hover { color: var(--fg-2); border-color: var(--muted); }
+/* Empty fields only show on the step being hovered or edited, so long procedures stay readable. */
+.hcc-step-fields .hcc-chip-empty { visibility: hidden; }
+.bn-block-content:hover .hcc-step-fields .hcc-chip-empty,
+.hcc-step:focus-within .hcc-step-fields .hcc-chip-empty,
+.bn-block-content.ProseMirror-selectednode .hcc-chip-empty { visibility: visible; }
+.hcc-step-fields:not(:has(.hcc-chip:not(.hcc-chip-empty))):not(:has(textarea)) { height: 22px; }
+@media (hover: none) { .hcc-step-fields .hcc-chip-empty { visibility: visible; } }
+
+/* Collapsed steps hide their sub-steps and nested blocks. */
+.hcc-editor .bn-block:has(> .bn-block-content[data-content-type="step"] .hcc-step[data-collapsed="true"]) > .bn-block-group {
+  display: none;
+}
+.hcc-step[data-collapsed="true"] .hcc-step-title { color: var(--fg-2); }
+
+/* Callout */
+.hcc-callout {
+  display: flex;
+  width: 100%;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-left-width: 2px;
+  border-radius: 6px;
+  --c: var(--teal);
+  border-left-color: var(--c);
+  background: color-mix(in srgb, var(--c) 7%, var(--surface));
+}
+.hcc-callout[data-variant="warning"] { --c: var(--warn); }
+.hcc-callout[data-variant="danger"] { --c: var(--urgent); }
+.hcc-callout-icon {
+  display: grid;
+  place-items: center;
+  margin-top: 3px;
+  height: 18px;
+  color: var(--c);
+  cursor: pointer;
+  border-radius: 4px;
+}
+.hcc-callout-icon:hover { background: var(--wash); }
+
+/* Check list */
+.hcc-editor [data-content-type="checkListItem"] input[type="checkbox"] { accent-color: var(--iris); }
+
+/* Images */
+.hcc-editor .bn-visual-media { border-radius: 12px; border: 1px solid var(--line); }

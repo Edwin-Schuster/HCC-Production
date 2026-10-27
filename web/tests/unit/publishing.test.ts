@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { blocks, sopVersions, auditEvents } from "@/db/schema";
 import { isImmutableVersionError } from "@/db";
 import { callout, step } from "@/blocks/build";
-import { createSop, getOrCreateDraft, getSopDocument, listVersions, publishDraft, saveDraft, discardDraft, deleteSop, updateSopMeta } from "@/server/services/sops";
+import { createSop, getEditorState, getOrCreateDraft, getSopDocument, listVersions, publishDraft, saveDraft, discardDraft, deleteSop, updateSopMeta } from "@/server/services/sops";
 import { testDb } from "./helpers";
 
 let t: Awaited<ReturnType<typeof testDb>>;
@@ -25,6 +25,25 @@ describe("document codes", () => {
     await deleteSop(t.db, admin, b.id);
     const c = await createSop(t.db, admin, { title: "C", folderId: aud.id });
     expect([a.documentCode, b.documentCode, c.documentCode]).toEqual(["SOP-AUD-001", "SOP-AUD-002", "SOP-AUD-003"]);
+  });
+});
+
+describe("editing without a draft", () => {
+  it("opens on the published version and creates the draft on first save, refusing outdated bases", async () => {
+    const { admin, sop } = await newSop("Lazy draft");
+    await saveDraft(t.db, admin, sop.id, { title: "Lazy draft", blocks: [step("one")] });
+    const v1 = await publishDraft(t.db, admin, sop.id, { changeSummary: "First version" });
+
+    const a = await getEditorState(t.db, admin, sop.id);
+    expect(a.draftExists).toBe(false);
+    expect(a.baseVersionId).toBe(v1.versionId);
+    const b = await getEditorState(t.db, admin, sop.id); // a second editor opens the same version
+    expect(await getEditorState(t.db, admin, sop.id).then((s) => s.draftExists)).toBe(false); // opening never creates drafts
+
+    await saveDraft(t.db, admin, sop.id, { title: "Lazy draft", blocks: a.blocks, baseVersionId: a.baseVersionId });
+    await publishDraft(t.db, admin, sop.id, { changeSummary: "Second version" });
+    // b started from v1, which is no longer current.
+    await expect(saveDraft(t.db, admin, sop.id, { title: "x", blocks: b.blocks, baseVersionId: b.baseVersionId })).rejects.toMatchObject({ status: 409, details: { reason: "outdated" } });
   });
 });
 
