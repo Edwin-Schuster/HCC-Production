@@ -35,6 +35,9 @@ export const feedbackType = pgEnum("feedback_type", ["unclear", "wrong", "other"
 export const feedbackStatus = pgEnum("feedback_status", ["open", "accepted", "rejected"]);
 export const suggestionStatus = pgEnum("suggestion_status", ["pending", "accepted", "rejected"]);
 export const runStatus = pgEnum("run_status", ["in_progress", "completed", "abandoned"]);
+export const apiKeyRole = pgEnum("api_key_role", ["viewer", "editor"]);
+export const deliveryStatus = pgEnum("delivery_status", ["pending", "success", "failed"]);
+export const viewSource = pgEnum("view_source", ["app", "share", "embed", "api", "extension"]);
 
 // ---------- Identity (ported HCC login) ----------
 
@@ -180,6 +183,8 @@ export const sops = pgTable(
     createdBy: text("created_by").references(() => users.id),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Web pages this SOP is about (e.g. "studio.youtube.com/*"); the browser extension suggests it there. */
+    urlPatterns: text("url_patterns").array().notNull().default(sql`'{}'::text[]`),
     /** Document code + tags, kept in sync by the service layer (array_to_string is not immutable). */
     searchKeywords: text("search_keywords").notNull().default(""),
     searchVector: tsvector("search_vector").generatedAlwaysAs(
@@ -456,4 +461,172 @@ export const snippetVersions = pgTable(
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.snippetId, t.version] })],
+);
+
+// ---------- Phase 3: integrations, sharing, training and analytics ----------
+
+/** Personal API tokens. A key acts as its owner, capped at its own role (a viewer key can only read). */
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** First characters of the token, shown so people can tell keys apart. */
+    prefix: text("prefix").notNull(),
+    keyHash: text("key_hash").notNull().unique(),
+    role: apiKeyRole("role").notNull().default("viewer"),
+    createdAt: createdAt(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [index("api_keys_user_idx").on(t.userId)],
+);
+
+export const webhooks = pgTable("webhooks", {
+  id: id(),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  /** HMAC-SHA256 signing secret; receivers verify the X-HCC-Signature header with it. */
+  secret: text("secret").notNull(),
+  events: text("events").array().notNull(),
+  active: boolean("active").notNull().default(true),
+  createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: createdAt(),
+});
+
+export const webhookDeliveries = pgTable(
+  "webhook_deliveries",
+  {
+    id: id(),
+    webhookId: text("webhook_id")
+      .notNull()
+      .references(() => webhooks.id, { onDelete: "cascade" }),
+    event: text("event").notNull(),
+    payload: jsonb("payload").notNull(),
+    status: deliveryStatus("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    lastStatusCode: integer("last_status_code"),
+    lastError: text("last_error"),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: createdAt(),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  },
+  (t) => [index("webhook_deliveries_due_idx").on(t.status, t.nextAttemptAt), index("webhook_deliveries_hook_idx").on(t.webhookId, t.createdAt)],
+);
+
+/** A link that opens one SOP without signing in. Optional password and expiry; can be revoked. */
+export const shareLinks = pgTable(
+  "share_links",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    sopId: text("sop_id")
+      .notNull()
+      .references(() => sops.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique(),
+    label: text("label").notNull().default(""),
+    passwordHash: text("password_hash"),
+    /** Pin to one version; null always shows the current version. */
+    versionId: text("version_id").references(() => sopVersions.id),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    viewCount: integer("view_count").notNull().default(0),
+    lastViewedAt: timestamp("last_viewed_at", { withTimezone: true }),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("share_links_sop_idx").on(t.sopId)],
+);
+
+export const sopViews = pgTable(
+  "sop_views",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    sopId: text("sop_id")
+      .notNull()
+      .references(() => sops.id, { onDelete: "cascade" }),
+    versionId: text("version_id"),
+    userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+    source: viewSource("source").notNull().default("app"),
+    viewedAt: timestamp("viewed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("sop_views_sop_idx").on(t.sopId, t.viewedAt), index("sop_views_ws_idx").on(t.workspaceId, t.viewedAt)],
+);
+
+export type QuizQuestion = { id: string; prompt: string; choices: string[]; answer: number; explanation?: string };
+
+/** One multiple-choice quiz per SOP, used by training assignments. */
+export const quizzes = pgTable("quizzes", {
+  sopId: text("sop_id")
+    .primaryKey()
+    .references(() => sops.id, { onDelete: "cascade" }),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  questions: jsonb("questions").$type<QuizQuestion[]>().notNull(),
+  passPercent: integer("pass_percent").notNull().default(80),
+  updatedBy: text("updated_by").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const trainingAssignments = pgTable(
+  "training_assignments",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    sopId: text("sop_id")
+      .notNull()
+      .references(() => sops.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    assignedBy: text("assigned_by").references(() => users.id, { onDelete: "set null" }),
+    note: text("note").notNull().default(""),
+    dueAt: timestamp("due_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    /** When they confirmed they read the SOP (and passed the quiz, if there is one). */
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    /** The version they were trained on. */
+    completedVersionId: text("completed_version_id").references(() => sopVersions.id),
+  },
+  (t) => [index("training_user_idx").on(t.userId, t.completedAt), index("training_sop_idx").on(t.sopId)],
+);
+
+export const quizAttempts = pgTable(
+  "quiz_attempts",
+  {
+    id: id(),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    sopId: text("sop_id")
+      .notNull()
+      .references(() => sops.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    assignmentId: text("assignment_id").references(() => trainingAssignments.id, { onDelete: "set null" }),
+    answers: jsonb("answers").$type<number[]>().notNull(),
+    score: integer("score").notNull(),
+    total: integer("total").notNull(),
+    passed: boolean("passed").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("quiz_attempts_user_idx").on(t.userId, t.sopId)],
 );

@@ -1,6 +1,6 @@
 "use client";
 
-import { FolderCog, KeyRound, LogIn, LogOut, Palette, Users } from "lucide-react";
+import { FolderCog, KeyRound, LogIn, LogOut, Palette, ScrollText, Users } from "lucide-react";
 import Link from "next/link";
 import { logout } from "@/app/actions/auth";
 import { ThemeToggle } from "@/components/theme";
@@ -52,6 +52,11 @@ export function UserMenu({ user }: { user: { name: string; role: string } | null
               <MenuItem asChild>
                 <Link href="/admin/branding">
                   <Palette /> Branding
+                </Link>
+              </MenuItem>
+              <MenuItem asChild>
+                <Link href="/admin/audit">
+                  <ScrollText /> Audit log
                 </Link>
               </MenuItem>
             </>

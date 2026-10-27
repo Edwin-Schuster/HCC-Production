@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { RestoreVersionButton } from "@/components/sop/restore-version";
 import { Suspense } from "react";
 import { ChevronRight, GitCompare } from "lucide-react";
 import { getContext } from "@/server/context";
@@ -10,6 +9,9 @@ import { Empty, Page, PageHeader } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LocalDate } from "@/components/local-date";
+import { RestoreVersionButton } from "@/components/sop/restore-version";
+import { AuditList } from "@/components/audit-list";
+import { listAudit } from "@/server/services/audit";
 
 export const metadata: Metadata = { title: "Version history" };
 
@@ -33,6 +35,7 @@ async function History({ params }: { params: PageProps<"/sops/[id]/history">["pa
     if (e instanceof AppError && e.status < 500) return <Empty title="This SOP isn't available">{e.message}</Empty>;
     throw e;
   }
+  const activity = doc.canEdit ? (await listAudit(db, actor, { targetId: id, limit: 50 })).items : [];
   return (
     <>
       <nav aria-label="Breadcrumb" className="mb-3 flex items-center gap-1 text-xs text-muted">
@@ -85,6 +88,12 @@ async function History({ params }: { params: PageProps<"/sops/[id]/history">["pa
             </li>
           ))}
         </ol>
+      )}
+      {activity.length > 0 && (
+        <section className="mt-10">
+          <h2 className="mb-2 text-[13px] font-[510] text-muted">Activity</h2>
+          <AuditList items={activity} />
+        </section>
       )}
     </>
   );
