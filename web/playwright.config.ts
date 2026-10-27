@@ -13,7 +13,8 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure", ...devices["Desktop Chrome"] },
   webServer: {
-    command: `npx next dev --port ${PORT}`,
+    // A dev cache left by a server that was killed mid-write can make pages reload in a loop; start clean.
+    command: `rm -rf .next/dev && npx next dev --port ${PORT}`,
     url: `http://localhost:${PORT}/api/health`,
     timeout: 180_000,
     reuseExistingServer: false,

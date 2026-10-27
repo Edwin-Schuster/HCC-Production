@@ -781,7 +781,7 @@ export const cables = pgTable(
 );
 
 export type LayoutItem = { id: string; type: string; label: string; x: number; y: number; w?: number; h?: number; gearId?: string };
-export type LayoutRun = { id: string; from: string; to: string; label: string; color?: string; cableId?: string };
+export type LayoutRun = { id: string; from: string; to: string; label: string; color?: string; cableId?: string; style?: "straight" | "elbow" };
 
 export const layouts = pgTable("layouts", {
   id: id(),

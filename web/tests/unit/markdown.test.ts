@@ -11,3 +11,10 @@ describe("markdown", () => {
     expect(renderMarkdown("![rack](/files/abc)")).toContain('src="/files/abc"');
   });
 });
+
+describe("csv", () => {
+  it("quotes and neutralises formulas", async () => {
+    const { toCsv } = await import("@/lib/csv");
+    expect(toCsv([["a,b", 'say "hi"', "=SUM(A1)", "-5", "-x", null]])).toBe(`"a,b","say ""hi""",'=SUM(A1),-5,'-x,`);
+  });
+});

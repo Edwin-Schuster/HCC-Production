@@ -15,6 +15,8 @@ import { formatDay } from "@/lib/format";
 const PROJECT_TABS: [string, string][] = [
   ["", "Overview"],
   ["tasks", "Tasks"],
+  ["cabling", "Cabling"],
+  ["layouts", "Room layouts"],
   ["activity", "Activity"],
 ];
 

@@ -4,6 +4,7 @@ import { addDays, today } from "@/lib/work";
 import type { Actor } from "@/server/permissions";
 import { createProject } from "@/server/services/projects";
 import { createTask } from "@/server/services/tasks";
+import { createCable, createLayout, saveLayout } from "@/server/services/cabling";
 
 type Seeded = { actor: Actor; maria: { id: string }; james: { id: string } };
 
@@ -65,5 +66,35 @@ export async function seedModules(db: Executor, { actor, maria, james }: Seeded)
     { workspaceId: actor.workspaceId, targetType: "task", targetId: fiber.id, projectId: sanctuary.id, authorId: admin, body: "Conduit is clear. @james can you bring the fish tape Thursday?", mentions: [james.id], createdAt: at(2, 14) },
     { workspaceId: actor.workspaceId, targetType: "task", targetId: fiber.id, projectId: sanctuary.id, authorId: james.id, body: "Will do. I can be there at 6pm.", createdAt: at(2, 16) },
   ]);
+  const C = (o: Parameters<typeof createCable>[3]) => createCable(db, actor, sanctuary.id, { room: "Sanctuary", ...o });
+  const fo = await C({ label: "FO-001", type: "Fiber SM", from: "Booth Rack B", to: "Stage Left Closet", lengthFt: 180, status: "pulled", notes: "12 strand" });
+  const net14 = await C({ label: "NET-014", type: "Cat6A", from: "Booth Rack B", to: "PTZ-2 (Balcony)", lengthFt: 95, status: "tested", notes: "PoE++" });
+  const net15 = await C({ label: "NET-015", type: "Cat6A", from: "Booth Rack B", to: "PTZ-3 (House Right)", lengthFt: 120, status: "terminated" });
+  const sdi = await C({ label: "SDI-003", type: "12G-SDI", from: "Stage Left Closet", to: "Booth Switcher In 4", lengthFt: 160 });
+  const spk = await C({ label: "SPK-001", type: "Speaker 12/4", from: "Amp Rack", to: "Main Array L", lengthFt: 140 });
+
+  const layout = await createLayout(db, actor, sanctuary.id, "Sanctuary – Main Floor");
+  await saveLayout(db, actor, layout.id, {
+    name: "Sanctuary – Main Floor",
+    items: [
+      { id: "z1", type: "zone", label: "STAGE", x: 300, y: 40, w: 400, h: 150 },
+      { id: "z2", type: "zone", label: "BOOTH", x: 420, y: 520, w: 160, h: 90 },
+      { id: "z3", type: "zone", label: "SL CLOSET", x: 160, y: 60, w: 110, h: 90 },
+      { id: "g1", type: "speaker", label: "Main L", x: 320, y: 220 },
+      { id: "g2", type: "speaker", label: "Main R", x: 680, y: 220 },
+      { id: "g3", type: "camera", label: "PTZ-2", x: 500, y: 420 },
+      { id: "g4", type: "camera", label: "PTZ-3", x: 860, y: 330 },
+      { id: "g5", type: "rack", label: "Rack B", x: 500, y: 570 },
+      { id: "g6", type: "stagebox", label: "Stage box", x: 215, y: 110 },
+      { id: "g7", type: "rack", label: "Amp rack", x: 120, y: 300 },
+    ],
+    runs: [
+      { id: "r1", from: "g5", to: "g6", label: "FO-001", color: "#5e8bd6", cableId: fo.id, style: "elbow" },
+      { id: "r2", from: "g5", to: "g3", label: "NET-014", color: "#5eb88a", cableId: net14.id },
+      { id: "r3", from: "g5", to: "g4", label: "NET-015", color: "#5eb88a", cableId: net15.id, style: "elbow" },
+      { id: "r4", from: "g6", to: "g5", label: "SDI-003", color: "#d6c25e", cableId: sdi.id },
+      { id: "r5", from: "g7", to: "g1", label: "SPK-001", color: "#d65e7a", cableId: spk.id },
+    ],
+  });
   return { sanctuary, youth };
 }

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
 import { CopyButton } from "@/components/copy-button";
+import { downloadCsv, slug } from "@/lib/csv";
 import { formatDay } from "@/lib/format";
 import { PRIORITIES, PRIORITY_LABEL, PRIORITY_RANK, TASK_STATUSES, TASK_STATUS_LABEL, addDays, isOverdue, type Priority, type TaskStatus } from "@/lib/work";
 import { cn } from "@/lib/utils";
@@ -163,7 +164,7 @@ export function TasksView({
           </label>
         )}
         <span className="flex-1" />
-        <Button size="sm" variant="ghost" onClick={() => downloadCsv(projectName, visible, tasks, names)}>
+        <Button size="sm" variant="ghost" onClick={() => exportTasks(projectName, visible, tasks, names)}>
           <Download /> CSV
         </Button>
         <Button size="sm" variant="primary" onClick={() => setCreating({})}>
@@ -619,22 +620,10 @@ function NewTaskDialog({ projectId, initial, members, onClose, onCreated }: { pr
   );
 }
 
-function downloadCsv(projectName: string, rows: TaskView[], all: TaskView[], names: Map<string, string>) {
+function exportTasks(projectName: string, rows: TaskView[], all: TaskView[], names: Map<string, string>) {
   const title = new Map(all.map((t) => [t.id, t.title]));
-  const cell = (v: unknown) => {
-    const s = String(v ?? "");
-    // Leading = + - @ would run as a formula in a spreadsheet.
-    const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
-    return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
-  };
-  const lines = [
+  downloadCsv(`${slug(projectName)}-tasks`, [
     ["Title", "Status", "Priority", "Assignees", "Labels", "Start", "Due", "Parent task", "Completed"],
     ...rows.map((t) => [t.title, TASK_STATUS_LABEL[t.status], PRIORITY_LABEL[t.priority], t.assignees.map((u) => names.get(u) ?? "").filter(Boolean).join("; "), t.labels.join("; "), t.start ?? "", t.due ?? "", t.parentId ? (title.get(t.parentId) ?? "") : "", t.completedAt?.slice(0, 10) ?? ""]),
-  ];
-  const blob = new Blob([lines.map((l) => l.map(cell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `${projectName.replace(/[^\w-]+/g, "-").toLowerCase()}-tasks.csv`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  ]);
 }
