@@ -23,7 +23,8 @@ import { cn } from "@/lib/utils";
 import { expandSnippets } from "@/blocks/snippets";
 import { numberSteps, plain, walk } from "@/blocks/tree";
 import { fromBlockNote, imageExtras, keyMap, toBlockNote, type BNBlock } from "./convert";
-import { CollapseItem, DuplicateItem, getSlashItems } from "./menu-items";
+import { AnnotateItem, CollapseItem, DuplicateItem, getSlashItems } from "./menu-items";
+import { AnnotateHost } from "./annotate-host";
 import { sopSchema, type SopEditor as Editor } from "./schema";
 import { catalogResolver, storeFor, type SnippetCatalogItem } from "./store";
 
@@ -474,6 +475,7 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
                     <DragHandleMenu>
                       <DuplicateItem>Duplicate</DuplicateItem>
                       <CollapseItem />
+                      <AnnotateItem />
                       <RemoveBlockItem>Delete</RemoveBlockItem>
                     </DragHandleMenu>
                   )}
@@ -481,6 +483,7 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
               )}
             />
           </BlockNoteView>
+          <AnnotateHost editor={editor} upload={uploadFile} />
         </div>
         {preview && (
           <div className="mt-8 sm:pl-[54px]">

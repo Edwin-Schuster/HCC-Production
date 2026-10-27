@@ -14,7 +14,8 @@ import { numberSteps, plain, walk } from "@/blocks/tree";
 import { useTheme } from "@/components/theme";
 import { Button } from "@/components/ui/button";
 import { fromBlockNote, imageExtras, keyMap, toBlockNote, type BNBlock } from "./convert";
-import { CollapseItem, DuplicateItem, getSlashItems } from "./menu-items";
+import { AnnotateItem, CollapseItem, DuplicateItem, getSlashItems } from "./menu-items";
+import { AnnotateHost } from "./annotate-host";
 import { sopSchema, type SopEditor as Editor } from "./schema";
 import { storeFor } from "./store";
 
@@ -158,6 +159,7 @@ export default function SnippetEditor({ snippet, roles, canDelete }: SnippetEdit
                   <DragHandleMenu>
                     <DuplicateItem>Duplicate</DuplicateItem>
                     <CollapseItem />
+                    <AnnotateItem />
                     <RemoveBlockItem>Delete</RemoveBlockItem>
                   </DragHandleMenu>
                 )}
@@ -165,6 +167,7 @@ export default function SnippetEditor({ snippet, roles, canDelete }: SnippetEdit
             )}
           />
         </BlockNoteView>
+        <AnnotateHost editor={editor} upload={uploadFile} />
       </div>
     </div>
   );

@@ -23,10 +23,12 @@ type State = {
   images: Map<string, ImageExtras>;
   /** Stable key of an editor block (its id unless it was loaded from the server). */
   keyOf: (id: string) => string;
+  /** Image block being annotated, if any. */
+  annotating: string | null;
 };
 
 class EditorStore {
-  private state: State = { numbers: new Map(), roles: [], steps: [], snippets: [], images: new Map(), keyOf: (id) => id };
+  private state: State = { numbers: new Map(), roles: [], steps: [], snippets: [], images: new Map(), keyOf: (id) => id, annotating: null };
   private listeners = new Set<() => void>();
   get = () => this.state;
   subscribe = (l: () => void) => {

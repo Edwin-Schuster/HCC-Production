@@ -12,8 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // Bundled scripts
+    // Bundled scripts and copied vendor files
     "dist/**",
+    "public/vendor/**",
   ]),
   {
     // Apostrophes in JSX text render fine; escaping them only hurts readability.

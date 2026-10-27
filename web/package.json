@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/copy-ocr-assets.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/copy-ocr-assets.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -19,6 +21,7 @@
     "@blocknote/mantine": "^0.56.0",
     "@blocknote/react": "^0.56.0",
     "@electric-sql/pglite": "^0.5.12",
+    "@tesseract.js-data/eng": "^1.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -38,6 +41,7 @@
     "server-only": "^0.0.1",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0",
+    "tesseract.js": "^6.0.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {

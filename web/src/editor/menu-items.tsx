@@ -5,7 +5,9 @@ import { SideMenuExtension } from "@blocknote/core/extensions";
 import { getDefaultReactSlashMenuItems, useBlockNoteEditor, useComponentsContext, useExtensionState, type DefaultReactSuggestionItem } from "@blocknote/react";
 import { AlertTriangle, CornerDownRight, Film, Globe, Info, ListOrdered, OctagonAlert, Puzzle } from "lucide-react";
 import type { ReactNode } from "react";
+import { toast } from "sonner";
 import type { SopEditor } from "./schema";
+import { storeFor } from "./store";
 
 /** Slash menu: our structured blocks first, then BlockNote's items for the built-in types we support. */
 export function slashItems(editor: SopEditor, opts: { snippets?: boolean } = {}): DefaultReactSuggestionItem[] {
@@ -68,6 +70,27 @@ export function DuplicateItem({ children }: { children: ReactNode }) {
       }}
     >
       {children}
+    </Components.Generic.Menu.Item>
+  );
+}
+
+export function AnnotateItem() {
+  const Components = useComponentsContext()!;
+  const { editor, block } = useSideMenuBlock();
+  const current = block ? editor.getBlock(block.id) : undefined;
+  if (!current || current.type !== "image" || !(current.props as { url?: string }).url) return null;
+  return (
+    <Components.Generic.Menu.Item
+      className="bn-menu-item"
+      onClick={() => {
+        const extras = storeFor(editor).get().images.get(current.id);
+        const src = extras?.originalUrl ?? String((current.props as { url?: string }).url);
+        // A linked (other-site) image can't be read back from a canvas, so only uploads can be annotated.
+        if (!src.startsWith("/")) return void toast.error("Only uploaded images can be annotated. Upload the screenshot instead of linking to it.");
+        storeFor(editor).set({ annotating: current.id });
+      }}
+    >
+      Annotate image
     </Components.Generic.Menu.Item>
   );
 }
