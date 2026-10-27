@@ -580,3 +580,28 @@ export async function listAllTags(db: Executor, actor: Actor): Promise<string[]>
 }
 
 export const isEditor = (actor: Actor) => atLeast(actor, "editor");
+
+/**
+ * Rollback: copies an old published version into the draft (same block keys, so comments, feedback and
+ * diffs still line up). It's published like any other draft, so history only ever moves forward.
+ */
+export async function restoreVersion(db: Executor, actor: Actor, sopId: string, versionNumber: number, opts: { replaceDraft?: boolean } = {}) {
+  return db.transaction(async (tx) => {
+    const { sop, visibility } = await loadSop(tx, actor, sopId, { forUpdate: true });
+    if (!canEditSop(actor, sop, visibility)) throw forbidden("You can't edit this SOP.");
+    const [old] = await tx
+      .select()
+      .from(sopVersions)
+      .where(and(eq(sopVersions.sopId, sop.id), eq(sopVersions.versionNumber, versionNumber), isNotNull(sopVersions.publishedAt)))
+      .limit(1);
+    if (!old) throw notFound("That version doesn't exist.");
+    const existing = await draftOf(tx, sop.id);
+    if (existing && !opts.replaceDraft) throw conflict("There's already a draft. Restoring will replace it.", { reason: "draft_exists" });
+    if (existing) await tx.delete(sopVersions).where(eq(sopVersions.id, existing.id));
+    const blocks = cloneWithNewIds(await loadBlocks(tx, old.id));
+    const [draft] = await tx.insert(sopVersions).values({ sopId: sop.id, title: old.title, summary: old.summary, updatedBy: actor.userId }).returning();
+    await writeBlocks(tx, draft.id, blocks);
+    await audit(tx, actor, "sop.rolled_back", { type: "sop", id: sop.id }, { fromVersion: versionNumber, replacedDraft: Boolean(existing) });
+    return { draftId: draft.id };
+  });
+}

@@ -3,7 +3,7 @@
 import { refresh, revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createSop, deleteSop, discardDraft, publishDraft, setRetired, updateSopMeta, type CreateSopInput, type UpdateMetaInput } from "@/server/services/sops";
+import { createSop, deleteSop, discardDraft, publishDraft, restoreVersion, setRetired, updateSopMeta, type CreateSopInput, type UpdateMetaInput } from "@/server/services/sops";
 import { run } from "./run";
 
 const Id = z.string().min(1).max(64);
@@ -41,5 +41,11 @@ export async function setRetiredAction(sopId: string, retired: boolean) {
 export async function deleteSopAction(sopId: string) {
   const res = await run((db, actor) => deleteSop(db, actor, Id.parse(sopId)));
   if (res.ok) redirect("/sops");
+  return res;
+}
+
+export async function restoreVersionAction(sopId: string, versionNumber: number, replaceDraft: boolean) {
+  const res = await run((db, actor) => restoreVersion(db, actor, Id.parse(sopId), z.number().int().min(1).parse(versionNumber), { replaceDraft }));
+  if (res.ok) redirect(`/sops/${sopId}/edit`);
   return res;
 }

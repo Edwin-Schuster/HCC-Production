@@ -77,7 +77,8 @@ export async function seedDemoContent(db: Executor, workspaceId: string) {
   ];
   await write(startup.id, "Sunday System Startup", "Power-up order for the sanctuary systems before the first service.", startupV1());
   await publishDraft(db, actor, startup.id, { changeSummary: "First version, moved from the old handbook." });
-  const v2 = startupV1();
+  // v2 starts from v1's content (same block keys, as the editor does), so the version diff is meaningful.
+  const { blocks: v2 } = await getOrCreateDraft(db, actor, startup.id);
   v2.splice(
     4, // before the Procedure heading
     0,
@@ -90,6 +91,8 @@ export async function seedDemoContent(db: Executor, workspaceId: string) {
       ["Amp rack", "B-15 / B-16", "Amp room"],
     ]),
   );
+  const amps = v2.find((b) => b.type === "step" && b.content.title[0]?.text.startsWith("Turn on the amplifiers"));
+  if (amps?.type === "step") amps.content.expectedResult = "Green **Ready** light on every amp, and no hum in the house.";
   await write(startup.id, "Sunday System Startup", "Power-up order for the sanctuary systems before the first service.", v2);
   await publishDraft(db, actor, startup.id, { changeSummary: "Added the rack diagram and breaker table." });
 

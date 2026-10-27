@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArchiveRestore, CalendarCheck, ChevronDown, FileDown, History, MoreHorizontal, Pencil, Settings2, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, CalendarCheck, ChevronDown, FileDown, History, MoreHorizontal, Pencil, Settings2, Trash2, Workflow } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -65,6 +65,11 @@ export function SopActions(p: Props) {
       <Button asChild size="sm" variant="ghost">
         <Link href={`/sops/${p.sopId}/history`}>
           <History /> <span className="hidden sm:inline">History</span>
+        </Link>
+      </Button>
+      <Button asChild size="icon-sm" variant="ghost" aria-label="Flowchart" title="Flowchart">
+        <Link href={`/sops/${p.sopId}/flow${p.versionQuery ? `?${p.versionQuery}` : ""}`}>
+          <Workflow />
         </Link>
       </Button>
       {p.canEdit && (
