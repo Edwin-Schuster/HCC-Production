@@ -1,9 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getContext } from "@/server/context";
 import { toPublicError } from "@/server/errors";
-import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, uploadImage } from "@/server/services/files";
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, uploadAttachment, uploadImage } from "@/server/services/files";
 
-/** Image and video upload for the editor: multipart form with a single "file" field. */
+/**
+ * Uploads: multipart form with a single "file" field. SOP media by default; `kind=attachment` stores any file
+ * privately for project work.
+ */
 export async function POST(req: NextRequest) {
   try {
     const len = Number(req.headers.get("content-length") ?? 0);
@@ -12,7 +15,8 @@ export async function POST(req: NextRequest) {
     const file = form.get("file");
     if (!(file instanceof File)) return NextResponse.json({ error: "Attach an image in the “file” field." }, { status: 400 });
     const { db, actor } = await getContext();
-    const res = await uploadImage(db, actor, file.name, new Uint8Array(await file.arrayBuffer()));
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const res = form.get("kind") === "attachment" ? await uploadAttachment(db, actor, file.name, bytes) : await uploadImage(db, actor, file.name, bytes);
     return NextResponse.json(res, { status: 201 });
   } catch (e) {
     const p = toPublicError(e);

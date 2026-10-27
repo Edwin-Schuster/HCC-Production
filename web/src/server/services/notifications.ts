@@ -17,7 +17,11 @@ export type NotificationKind =
   | "suggestion_resolved"
   | "published"
   | "training_assigned"
-  | "training_completed";
+  | "training_completed"
+  | "task_assigned"
+  | "task_due"
+  | "task_overdue"
+  | "task_comment";
 
 /**
  * In-app notifications. The person who caused an event is never notified about it.

@@ -43,6 +43,63 @@ export async function uploadImage(db: Executor, actor: Actor, name: string, byte
   return { id, url: `/files/${id}`, mime, size: bytes.byteLength };
 }
 
+export const MAX_ATTACHMENT_BYTES = Number(process.env.MAX_UPLOAD_MB ?? 25) * 1024 * 1024;
+
+/** Types a browser may show inline. Anything else downloads, so an uploaded HTML file can't run in the app's origin. */
+const INLINE = new Set<string>([...IMAGE_TYPES, ...VIDEO_TYPES, "application/pdf", "text/plain"]);
+export const servesInline = (mime: string) => INLINE.has(mime);
+
+/** Looks like text: valid UTF-8 with no NUL bytes in the first 8 KB (show files, exported configs, CSV). */
+function looksText(b: Uint8Array) {
+  const head = b.subarray(0, 8192);
+  if (head.includes(0)) return false;
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(head.length === b.length ? head : head.subarray(0, Math.max(0, head.length - 4)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function sniffAttachment(b: Uint8Array): string {
+  const media = sniffImage(b) ?? sniffVideo(b);
+  if (media) return media;
+  if (b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46) return "application/pdf";
+  return b.length && looksText(b) ? "text/plain" : "application/octet-stream";
+}
+
+/** Any file for project work. Private: only editors in the workspace can download it. */
+export async function uploadAttachment(db: Executor, actor: Actor, name: string, bytes: Uint8Array) {
+  if (!atLeast(actor, "editor")) throw forbidden("Only editors can upload files.");
+  if (!bytes.byteLength) throw invalid("That file is empty.");
+  if (bytes.byteLength > MAX_ATTACHMENT_BYTES) throw invalid(`Files can be at most ${MAX_ATTACHMENT_BYTES / 1048576} MB.`);
+  const mime = sniffAttachment(bytes);
+  const id = crypto.randomUUID();
+  const storageKey = `${actor.workspaceId}/${id}`;
+  await storage().put(storageKey, bytes);
+  const fileName = name.replace(/[\/\0]/g, "_").slice(0, 200) || "file";
+  await db.insert(files).values({ id, workspaceId: actor.workspaceId, name: fileName, mime, size: bytes.byteLength, storageKey, private: true, createdBy: actor.userId });
+  return { id, url: `/files/${id}`, name: fileName, mime, size: bytes.byteLength };
+}
+
+/** Reads a stored file as text (config backup viewer). Editors only. */
+export async function readTextFile(db: Executor, actor: Actor, id: string, maxBytes = 2 * 1024 * 1024) {
+  if (!atLeast(actor, "editor")) throw forbidden();
+  const [row] = await db.select().from(files).where(and(eq(files.id, id), eq(files.workspaceId, actor.workspaceId))).limit(1);
+  if (!row) throw notFound("File not found.");
+  if (row.mime !== "text/plain") throw invalid("That file isn't text.");
+  const body = await storage().get(row.storageKey, row.size > maxBytes ? { start: 0, end: maxBytes - 1 } : undefined);
+  if (!body) throw notFound("File not found.");
+  const chunks: Uint8Array[] = [];
+  const reader = body.stream.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  return { name: row.name, size: row.size, truncated: row.size > maxBytes, text: new TextDecoder().decode(Buffer.concat(chunks)) };
+}
+
 /**
  * SOP images are served by unguessable id, so images in public SOPs work for signed-out readers
  * (the same model as the original app). Ids are random UUIDs and never listed.
@@ -50,10 +107,14 @@ export async function uploadImage(db: Executor, actor: Actor, name: string, byte
 export class RangeNotSatisfiable extends Error {}
 
 /** `range` comes from an HTTP Range header; a negative start means "the last N bytes". */
-export async function openFile(db: Executor, id: string, range?: { start: number; end: number }) {
+export async function openFile(db: Executor, id: string, range?: { start: number; end: number }, actor?: () => Promise<Actor>) {
   if (!/^[0-9a-f-]{36}$/.test(id)) throw notFound();
   const [row] = await db.select().from(files).where(and(eq(files.id, id))).limit(1);
   if (!row) throw notFound();
+  if (row.private) {
+    const a = actor ? await actor() : null;
+    if (!a || a.workspaceId !== row.workspaceId || !atLeast(a, "editor")) throw notFound();
+  }
   let resolved: { start: number; end: number } | undefined;
   if (range) {
     resolved = range.start < 0 ? { start: Math.max(0, row.size + range.start), end: row.size - 1 } : { start: range.start, end: Math.min(range.end, row.size - 1) };

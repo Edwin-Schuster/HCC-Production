@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getDb } from "@/db";
 import { toPublicError } from "@/server/errors";
-import { openFile, RangeNotSatisfiable } from "@/server/services/files";
+import { getActor } from "@/server/context";
+import { openFile, RangeNotSatisfiable, servesInline } from "@/server/services/files";
 
 /** Parses "bytes=start-end" or "bytes=-N" (one range only, which is all video players ask for). */
 function parseRange(header: string | null): { start: number; end: number } | undefined {
@@ -14,7 +15,7 @@ function parseRange(header: string | null): { start: number; end: number } | und
 export async function GET(req: NextRequest, ctx: RouteContext<"/files/[id]">) {
   try {
     const { id } = await ctx.params;
-    const f = await openFile(await getDb(), id, parseRange(req.headers.get("range")));
+    const f = await openFile(await getDb(), id, parseRange(req.headers.get("range")), getActor);
     const r = f.range;
     return new NextResponse(f.stream, {
       status: r ? 206 : 200,
@@ -23,9 +24,10 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/files/[id]">) {
         "Content-Length": String(r ? r.end - r.start + 1 : f.size),
         "Accept-Ranges": "bytes",
         ...(r ? { "Content-Range": `bytes ${r.start}-${r.end}/${f.size}` } : {}),
-        "Cache-Control": "public, max-age=31536000, immutable",
+        "Cache-Control": f.private ? "private, max-age=3600" : "public, max-age=31536000, immutable",
         "X-Content-Type-Options": "nosniff",
-        "Content-Disposition": `inline; filename="${encodeURIComponent(f.name)}"`,
+        "Content-Disposition": `${servesInline(f.mime) ? "inline" : "attachment"}; filename="${encodeURIComponent(f.name)}"`,
+        ...(f.private ? { "Content-Security-Policy": "sandbox" } : {}),
       },
     });
   } catch (e) {

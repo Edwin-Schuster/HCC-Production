@@ -299,6 +299,8 @@ export const files = pgTable("files", {
   mime: text("mime").notNull(),
   size: integer("size").notNull(),
   storageKey: text("storage_key").notNull(),
+  /** Project files (attachments, contracts, config backups) need an editor to download; SOP media doesn't. */
+  private: boolean("private").notNull().default(false),
   createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: createdAt(),
 });

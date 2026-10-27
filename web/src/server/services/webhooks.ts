@@ -12,7 +12,7 @@ import { audit } from "./audit";
  * the scheduler with an HMAC signature and retried with backoff, so a slow receiver never slows the app.
  */
 
-export const WEBHOOK_EVENTS = ["sop.created", "sop.published", "sop.retired", "sop.restored", "feedback.created", "run.completed"] as const;
+export const WEBHOOK_EVENTS = ["sop.created", "sop.published", "sop.retired", "sop.restored", "feedback.created", "run.completed", "task.created", "task.completed"] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
 
 /** Minutes to wait before each retry; after the last one the delivery is marked failed. */

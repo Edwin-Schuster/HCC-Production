@@ -60,7 +60,7 @@ async function workingTree(db: Executor, sop: { id: string; currentVersionId: st
 
 const MENTION = /(^|[^\w@])@([a-z0-9._-]{2,40})/gi;
 
-async function resolveMentions(db: Executor, workspaceId: string, body: string): Promise<string[]> {
+export async function resolveMentions(db: Executor, workspaceId: string, body: string): Promise<string[]> {
   const names = [...new Set([...body.matchAll(MENTION)].map((m) => m[2].toLowerCase()))].slice(0, 20);
   if (!names.length) return [];
   const rows = await db
