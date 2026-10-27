@@ -161,3 +161,45 @@
     transition: none !important;
   }
 }
+
+/* Printing (browser print and PDF export) always uses the light palette on white paper. */
+@media print {
+  :root,
+  [data-theme] {
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #f4f5f7;
+    --surface-3: #e8e9ed;
+    --fg-hi: #08090a;
+    --fg: #1d1e21;
+    --fg-2: #2b2e33;
+    --muted: #5f636a;
+    --faint: #8d9199;
+    --line: #dcdee3;
+    --line-2: #c9ccd2;
+    --wash: rgb(0 0 0 / 0.04);
+    --wash-2: rgb(0 0 0 / 0.025);
+    --good: #1f8a3c;
+    --warn: #b45309;
+    --bad: #c53030;
+    color-scheme: light;
+  }
+  body {
+    background: #fff !important;
+  }
+  a {
+    text-decoration: none !important;
+  }
+  .sop-step > div:first-child,
+  .sop-header,
+  figure,
+  aside,
+  tr {
+    break-inside: avoid;
+  }
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+}

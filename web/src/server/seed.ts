@@ -78,7 +78,7 @@ export async function seedDemoContent(db: Executor, workspaceId: string) {
   await publishDraft(db, actor, startup.id, { changeSummary: "First version, moved from the old handbook." });
   const v2 = startupV1();
   v2.splice(
-    5,
+    4, // before the Procedure heading
     0,
     h("Reference"),
     image(RACK_SVG, "Booth racks, front view"),
