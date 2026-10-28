@@ -1,28 +1,44 @@
+# HCC Production with Postgres. Copy .env.example to .env, then:  docker compose up -d --build
+# The app itself lives in web/; the original app is archived in legacy/.
 services:
-  hcc-production:
-    build: .
-    image: hcc-production:latest
-    container_name: hcc-production
+  db:
+    image: postgres:17-alpine
     restart: unless-stopped
-    ports:
-      - "8080:8080"           # put a reverse proxy (Caddy, Nginx Proxy Manager, Traefik) in front for HTTPS
-    env_file: .env
+    environment:
+      POSTGRES_USER: hcc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: hcc
     volumes:
-      - hcc-data:/data        # database + uploaded files live here; back this up
+      - hcc-pg:/var/lib/postgresql/data   # back this up
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hcc"]
+      interval: 5s
+      retries: 20
 
-  # Optional: self-hosted push server for phone notifications.
-  # Uncomment, then set "ntfy server" in Settings → Notifications & calendar to its public URL.
-  # ntfy:
-  #   image: binwiederhier/ntfy:v2.11.0
-  #   command: serve
-  #   restart: unless-stopped
-  #   environment:
-  #     NTFY_BASE_URL: https://ntfy.example.org
-  #   ports:
-  #     - "8081:80"
-  #   volumes:
-  #     - ntfy-cache:/var/cache/ntfy
+  web:
+    build:
+      context: ./web
+      args:
+        NEXT_PUBLIC_APP_TIMEZONE: ${NEXT_PUBLIC_APP_TIMEZONE:-}
+    image: hcc-web:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://hcc:${POSTGRES_PASSWORD}@db:5432/hcc
+    ports:
+      - "3000:3000"   # put a reverse proxy (Caddy, Nginx Proxy Manager, Traefik) in front for HTTPS
+    volumes:
+      - hcc-files:/data   # uploaded files; back this up
+      # The original app's data (its database and uploads), read-only, for the one-time import:
+      #   docker compose exec web node scripts/import-legacy.mjs /legacy
+      - hcc-data:/legacy:ro
+    shm_size: 512mb       # Chromium needs more than Docker's 64 MB default for PDF export
 
 volumes:
+  hcc-pg:
+  hcc-files:
+  # Created by the original app. Once the import is done and checked you can remove this line and the mount above.
   hcc-data:
-  # ntfy-cache:

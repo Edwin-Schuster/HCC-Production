@@ -519,7 +519,13 @@ export async function readLegacyFolder(dbFile: string, uploadsDir: string): Prom
   const { DatabaseSync } = await import("node:sqlite");
   const fs = await import("node:fs/promises");
   const path = await import("node:path");
-  const legacy = new DatabaseSync(dbFile, { readOnly: true });
+  const os = await import("node:os");
+  // Work on a copy: the old database may sit on a read-only mount with a write-ahead log beside it.
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "hcc-legacy-"));
+  const copy = path.join(tmp, "hcc.db");
+  await fs.copyFile(dbFile, copy);
+  for (const ext of ["-wal", "-shm"]) await fs.copyFile(dbFile + ext, copy + ext).catch(() => {});
+  const legacy = new DatabaseSync(copy);
   try {
     const usersRows = legacy.prepare("SELECT id, username, name, email, role, password_hash, ntfy_topic, person_id FROM users").all() as LegacyUser[];
     const docRows = legacy.prepare("SELECT coll, data FROM docs ORDER BY updated_at").all() as { coll: string; data: string }[];
@@ -541,5 +547,6 @@ export async function readLegacyFolder(dbFile: string, uploadsDir: string): Prom
     };
   } finally {
     legacy.close();
+    await fs.rm(tmp, { recursive: true, force: true });
   }
 }

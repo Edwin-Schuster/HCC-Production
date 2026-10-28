@@ -6,7 +6,7 @@ import { checkPassword } from "@/server/auth/password";
 import { getSopDocument, listSops } from "@/server/services/sops";
 import { listGear } from "@/server/services/gear";
 import { testDb } from "./helpers";
-import "../../../public/shared.js";
+import "../../../legacy/public/shared.js";
 
 type Seed = Record<string, Record<string, unknown>[]>;
 const HCC = (globalThis as unknown as { HCC: { seed: (adminId: string) => Seed } }).HCC;
