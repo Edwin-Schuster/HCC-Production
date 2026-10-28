@@ -962,3 +962,16 @@ export const gear = pgTable("gear", {
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
+
+/** Which record each document from the original app became, so the import can be re-run safely. */
+export const legacyIds = pgTable(
+  "legacy_ids",
+  {
+    workspaceId: ws(),
+    collection: text("collection").notNull(),
+    legacyId: text("legacy_id").notNull(),
+    newId: text("new_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.collection, t.legacyId] })],
+);

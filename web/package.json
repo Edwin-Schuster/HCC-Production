@@ -13,8 +13,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
-    "import:legacy-users": "tsx scripts/import-legacy-users.ts",
-    "build:scripts": "esbuild scripts/import-legacy-users.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/import-legacy-users.mjs --external:@electric-sql/pglite --external:pg --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\""
+    "import:legacy": "tsx scripts/import-legacy.ts",
+    "build:scripts": "esbuild scripts/import-legacy.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/import-legacy.mjs --external:@electric-sql/pglite --external:pg --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\""
   },
   "dependencies": {
     "@blocknote/core": "^0.56.0",
