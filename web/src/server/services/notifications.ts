@@ -2,6 +2,7 @@ import { and, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Executor } from "@/db";
 import { notifications, users, workspaceMembers } from "@/db/schema";
 import type { Actor, Role } from "@/server/permissions";
+import { sendPush } from "./push";
 
 export type NotificationKind =
   | "review_due"
@@ -37,7 +38,9 @@ export async function notify(
     .insert(notifications)
     .values(recipients.map((userId) => ({ workspaceId: n.workspaceId, userId, actorId: n.actorId, kind: n.kind, title: n.title.slice(0, 300), body: (n.body ?? "").slice(0, 1000), link: n.link, dedupeKey: n.dedupeKey ?? null })))
     .onConflictDoNothing()
-    .returning({ id: notifications.id });
+    .returning({ userId: notifications.userId });
+  // Phones hear about it too (fire and forget: never slows down the action).
+  if (rows.length) void sendPush(db, n.workspaceId, rows.map((r) => r.userId), { title: n.title, body: n.body, link: n.link });
   return rows.length;
 }
 
