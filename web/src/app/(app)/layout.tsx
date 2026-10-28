@@ -77,6 +77,9 @@ async function NavContent() {
             <NavLink href="/reviews" icon={NavIcons.reviews}>
               <Counted count={reviewsDue}>Reviews</Counted>
             </NavLink>
+            <NavLink href="/gear" icon={NavIcons.gear}>
+              Gear
+            </NavLink>
             <NavLink href="/contractors" icon={NavIcons.contractors}>
               Contractors
             </NavLink>

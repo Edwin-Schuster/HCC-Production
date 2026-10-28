@@ -933,7 +933,7 @@ export const invoices = pgTable("invoices", {
 });
 
 export type FirmwareChange = { from: string; to: string; at: string; by: string; note?: string };
-export type ConfigBackup = { id: string; url: string; name: string; size: number; note: string; at: string; by: string };
+export type ConfigBackup = { id: string; url: string; name: string; size: number; mime?: string; note: string; firmware?: string; at: string; by: string };
 
 export const gear = pgTable("gear", {
   id: id(),

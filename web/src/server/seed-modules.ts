@@ -6,6 +6,7 @@ import { createProject } from "@/server/services/projects";
 import { createTask } from "@/server/services/tasks";
 import { createCable, createLayout, saveLayout } from "@/server/services/cabling";
 import { createBomItem, createPurchaseOrder, receivePurchaseOrder } from "@/server/services/purchasing";
+import { createGear, logFirmware } from "@/server/services/gear";
 import { createContractor, saveAccess, saveInvoice, savePunch, saveScope } from "@/server/services/contractors";
 
 type Seeded = { actor: Actor; maria: { id: string }; james: { id: string } };
@@ -140,5 +141,11 @@ export async function seedModules(db: Executor, { actor, maria, james }: Seeded)
   await savePunch(db, actor, { projectId: sanctuary.id, contractorId: rig.id, location: "Balcony rail", description: "Lift access needed for PTZ-2 bracket", due: day(5) });
   await savePunch(db, actor, { projectId: sanctuary.id, contractorId: spark.id, location: "Booth", description: "Cover plate missing on floor box FB-3", status: "ready_for_review", due: day(2) });
   await saveInvoice(db, actor, { contractorId: rig.id, projectId: sanctuary.id, number: "SR-1182", date: day(-5), dueDate: day(25), amount: 6250, status: "approved", notes: "50% deposit" });
+  const G = (o: Parameters<typeof createGear>[2]) => createGear(db, actor, o);
+  const foh = await G({ name: "FOH Console", category: "Audio", manufacturer: "Allen & Heath", model: "dLive S5000", serial: "AH-S5K-204411", assetTag: "HCC-A-001", location: "Booth", ip: "192.168.10.10", mac: "00:04:C4:12:34:56", purchaseDate: "2021-03-12", warranty: "2026-03-12", firmware: "1.97" });
+  await logFirmware(db, actor, foh.id, { version: "2.01", date: day(-60), note: "Fixes scene recall bug" });
+  await G({ name: "Stage Box 1", category: "Audio", manufacturer: "Allen & Heath", model: "DX168", serial: "AH-DX-55821", assetTag: "HCC-A-014", location: "Stage Left Closet", firmware: "2.01" });
+  await G({ name: "PTZ-2 Balcony", category: "Video", manufacturer: "BirdDog", model: "P400", serial: "BD-P4-00921", assetTag: "HCC-V-022", location: "Balcony", status: "spare", ip: "192.168.20.32", firmware: "5.5.112", notes: "Awaiting mount" });
+  await G({ name: "Production Switcher", category: "Video", manufacturer: "Blackmagic", model: "ATEM Constellation 4K", serial: "BM-ATC-7731A", assetTag: "HCC-V-001", location: "Booth Rack B", ip: "192.168.20.10", firmware: "9.6" });
   return { sanctuary, youth };
 }
