@@ -1,4 +1,6 @@
 import { Badge } from "@/components/ui/badge";
+import { PERSON_STATUS_TONE, type PersonStatus } from "@/lib/roster";
+import { cn } from "@/lib/utils";
 import { PRIORITY_LABEL, PROJECT_STATUS_LABEL, TASK_STATUS_LABEL, labelHue, type Priority, type ProjectStatus, type TaskStatus } from "@/lib/work";
 
 const PROJECT_TONE = { planning: "neutral", active: "info", on_hold: "warn", complete: "good" } as const;
@@ -36,4 +38,9 @@ export function Avatar({ name, size = "sm" }: { name: string; size?: "xs" | "sm"
       {initials(name)}
     </span>
   );
+}
+
+const DOT = { good: "bg-good", info: "bg-iris", warn: "bg-warn", bad: "bg-bad" } as const;
+export function StatusDot({ status }: { status: PersonStatus }) {
+  return <span aria-hidden className={cn("inline-block size-2 shrink-0 rounded-full", DOT[PERSON_STATUS_TONE[status]])} />;
 }

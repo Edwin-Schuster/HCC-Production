@@ -8,6 +8,7 @@ import { commentOnTask, createTask, deleteTask, deleteWorkComment, moveTask, upd
 import type { TaskStatus } from "@/lib/work";
 import { createCable, createLayout, deleteCable, deleteLayout, saveLayout, updateCable, type CableInput, type LayoutInput } from "@/server/services/cabling";
 import { createBomItem, createPurchaseOrder, deleteBomItem, deletePurchaseOrder, receivePurchaseOrder, updateBomItem, updatePurchaseOrder, type BomInput, type PoInput, type ReceiveInput } from "@/server/services/purchasing";
+import { addPhotos, deletePhoto, updatePhoto, type PhotoEdit, type PhotoInput } from "@/server/services/photos";
 import { run } from "./run";
 
 const Id = z.string().min(1).max(64);
@@ -56,3 +57,7 @@ export const savePoAction = async (projectId: string, input: z.input<typeof PoIn
   done(await run(async (db, actor) => void (id ? await updatePurchaseOrder(db, actor, Id.parse(id), input) : await createPurchaseOrder(db, actor, Id.parse(projectId), input))));
 export const receivePoAction = async (id: string, input: z.input<typeof ReceiveInput>) => done(await run((db, actor) => receivePurchaseOrder(db, actor, Id.parse(id), input)));
 export const deletePoAction = async (id: string) => done(await run((db, actor) => deletePurchaseOrder(db, actor, Id.parse(id))));
+
+export const addPhotosAction = async (projectId: string, input: z.input<typeof PhotoInput>) => done(await run((db, actor) => addPhotos(db, actor, Id.parse(projectId), input)));
+export const updatePhotoAction = async (id: string, input: z.input<typeof PhotoEdit>) => done(await run((db, actor) => updatePhoto(db, actor, Id.parse(id), input)));
+export const deletePhotoAction = async (id: string) => done(await run((db, actor) => deletePhoto(db, actor, Id.parse(id))));

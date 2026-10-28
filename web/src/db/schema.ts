@@ -807,6 +807,9 @@ export const projectPhotos = pgTable("project_photos", {
     .references(() => projects.id, { onDelete: "cascade" }),
   url: text("url").notNull(),
   caption: text("caption").notNull().default(""),
+  /** "Balcony rail", "Booth": photos are browsed by where they were taken. */
+  location: text("location").notNull().default(""),
+  mime: text("mime").notNull().default("image/jpeg"),
   takenBy: text("taken_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: createdAt(),
 });

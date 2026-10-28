@@ -10,10 +10,18 @@ import { FolderTree, NavIcons, NavLink } from "@/components/shell/nav";
 import { PaletteButton, ShellFrame } from "@/components/shell/frame";
 import { CommandPalette } from "@/components/shell/palette";
 import { UserMenu } from "@/components/shell/user-menu";
+import { TabBar } from "@/components/shell/tab-bar";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <ShellFrame nav={<Nav />}>
+    <ShellFrame
+      nav={<Nav />}
+      tabs={
+        <Suspense>
+          <Tabs />
+        </Suspense>
+      }
+    >
       {children}
       <Suspense>
         <Palette />
@@ -47,6 +55,11 @@ async function NavContent() {
   return (
     <>
       <nav className="grid gap-px" aria-label="Main">
+        {actor.userId && (
+          <NavLink href="/" icon={NavIcons.home} exact>
+            Home
+          </NavLink>
+        )}
         <NavLink href="/sops" icon={NavIcons.library} exact>
           All SOPs
         </NavLink>
@@ -110,6 +123,22 @@ async function NavContent() {
         <UserMenu user={actor.userId ? { name: actor.name, role: actor.role } : null} />
       </div>
     </>
+  );
+}
+
+async function Tabs() {
+  const { db, actor } = await getContext();
+  if (!actor.userId) return null;
+  return (
+    <TabBar
+      tabs={[
+        { href: "/", label: "Home", icon: "home" },
+        { href: "/sops", label: "SOPs", icon: "sops" },
+        { href: "/projects", label: "Projects", icon: "projects" },
+        { href: "/roster", label: "Roster", icon: "roster" },
+        { href: "/inbox", label: "Inbox", icon: "inbox", count: await unreadCount(db, actor) },
+      ]}
+    />
   );
 }
 

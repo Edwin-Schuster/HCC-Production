@@ -13,6 +13,7 @@ export const metadata: Metadata = {
   title: { default: "HCC Production", template: "%s · HCC Production" },
   description: "Standard operating procedures and production tools for Hope Christian Church.",
   icons: { icon: "/brand/favicon-32.png", apple: "/brand/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "HCC Production", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = { themeColor: "#08090a", width: "device-width", initialScale: 1, viewportFit: "cover", interactiveWidget: "resizes-content" };

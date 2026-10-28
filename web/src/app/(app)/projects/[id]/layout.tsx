@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Printer } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { getContext } from "@/server/context";
 import { AppError } from "@/server/errors";
 import { atLeast } from "@/server/permissions";
@@ -19,6 +20,7 @@ const PROJECT_TABS: [string, string][] = [
   ["layouts", "Room layouts"],
   ["budget", "Budget"],
   ["contractors", "Contractors"],
+  ["photos", "Photos"],
   ["activity", "Activity"],
 ];
 
@@ -65,6 +67,11 @@ async function Header({ params }: { params: LayoutProps<"/projects/[id]">["param
         </div>
         {full && atLeast(actor, "editor") && (
           <div className="flex gap-2">
+            <Button asChild size="sm" variant="ghost">
+              <Link href={`/print/project/${id}`} target="_blank">
+                <Printer /> Report
+              </Link>
+            </Button>
             <ProjectFormButton project={full} members={members} />
           </div>
         )}

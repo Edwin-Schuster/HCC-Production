@@ -9,7 +9,7 @@ import { Kbd } from "@/components/ui/field";
 import { openPalette } from "./palette-bus";
 
 /** Desktop: fixed left rail. Phone: top bar + slide-over nav. */
-export function ShellFrame({ nav, children }: { nav: ReactNode; children: ReactNode }) {
+export function ShellFrame({ nav, tabs, children }: { nav: ReactNode; tabs?: ReactNode; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="min-h-dvh lg:pl-[232px]">
@@ -46,6 +46,7 @@ export function ShellFrame({ nav, children }: { nav: ReactNode; children: ReactN
       <main id="main" className="min-w-0">
         {children}
       </main>
+      {tabs}
     </div>
   );
 }

@@ -57,6 +57,13 @@
       "when": 1793135280946,
       "tag": "0007_contractor_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793146326608,
+      "tag": "0008_photo_locations",
+      "breakpoints": true
     }
   ]
 }

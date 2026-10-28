@@ -9,25 +9,22 @@ import { Empty, PageHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
-import { PERSON_STATUSES, PERSON_STATUS_LABEL, PERSON_STATUS_TONE, freshness, type PersonStatus } from "@/lib/roster";
+import { PERSON_STATUSES, PERSON_STATUS_LABEL, freshness, type PersonStatus } from "@/lib/roster";
+import { StatusDot } from "@/components/work/badges";
 import { cn } from "@/lib/utils";
 import type { RosterPerson, RosterRole } from "@/server/services/roster";
 
 type Account = { id: string; name: string; username: string };
 
-const DOT: Record<"good" | "info" | "warn" | "bad", string> = { good: "bg-good", info: "bg-iris", warn: "bg-warn", bad: "bg-bad" };
 const FRESH = { fresh: "text-good", recent: "text-muted", stale: "text-warn" } as const;
 
-export function StatusDot({ status }: { status: PersonStatus }) {
-  return <span aria-hidden className={cn("inline-block size-2 shrink-0 rounded-full", DOT[PERSON_STATUS_TONE[status]])} />;
-}
 
 function initials(name: string) {
   return name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 }
 
-export function RosterView({ people, roles, me, accounts, canEdit }: { people: RosterPerson[]; roles: RosterRole[]; me: RosterPerson | null; accounts: Account[]; canEdit: boolean }) {
-  const [checkingIn, setCheckingIn] = useState<RosterPerson | null>(null);
+export function RosterView({ people, roles, me, accounts, canEdit, checkIn = false }: { people: RosterPerson[]; roles: RosterRole[]; me: RosterPerson | null; accounts: Account[]; canEdit: boolean; checkIn?: boolean }) {
+  const [checkingIn, setCheckingIn] = useState<RosterPerson | null>(checkIn ? me : null);
   const [editing, setEditing] = useState<RosterPerson | "new" | null>(null);
   const [editingRole, setEditingRole] = useState<RosterRole | "new" | null>(null);
   const now = useNow();
