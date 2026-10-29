@@ -1,7 +1,7 @@
 "use client";
 
 import { Command } from "cmdk";
-import { BookOpen, FilePlus2, FileText, Heading2, Image as ImageIcon, KeyRound, ListChecks, ListOrdered, Minus, MessageSquareWarning, Moon, Search, Send, Table, Terminal, Eye, CornerDownRight } from "lucide-react";
+import { BarChart3, Box, CalendarClock, FolderKanban, GraduationCap, HardHat, Home, Inbox, ListTodo, Puzzle, ShoppingCart, Users, BookOpen, FilePlus2, FileText, Heading2, Image as ImageIcon, KeyRound, ListChecks, ListOrdered, Minus, MessageSquareWarning, Moon, Search, Send, Table, Terminal, Eye, CornerDownRight } from "lucide-react";
 import { Dialog as D } from "radix-ui";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
@@ -83,13 +83,13 @@ export function CommandPalette({ canCreate, signedIn }: { canCreate: boolean; si
               <Command.Input
                 value={q}
                 onValueChange={setQ}
-                placeholder={inEditor ? "Search SOPs or type a command (step, callout, publish…)" : "Search SOPs, steps, tags…"}
+                placeholder={inEditor ? "Search SOPs or type a command (step, callout, publish…)" : "Search SOPs and steps, or jump to a page…"}
                 className="h-12 flex-1 bg-transparent text-[15px] text-fg-hi outline-none placeholder:text-faint"
               />
               {loading && <span className="font-mono text-[11px] text-faint">…</span>}
             </div>
             <Command.List className="overflow-y-auto p-1.5 [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-muted">
-              <Command.Empty className="px-3 py-8 text-center text-[13px] text-muted">No SOPs match “{q}”.</Command.Empty>
+              <Command.Empty className="px-3 py-8 text-center text-[13px] text-muted">Nothing matches “{q}”.</Command.Empty>
               {inEditor && (
                 <Command.Group heading="Editor">
                   {EDITOR_ITEMS.filter((i) => match(q, i.label)).map((i) => (
@@ -116,11 +116,31 @@ export function CommandPalette({ canCreate, signedIn }: { canCreate: boolean; si
                   ))}
                 </Command.Group>
               )}
+              {q.trim() && (
+                <Command.Group heading="Search">
+                  <Item icon={<Search />} onSelect={() => go(`/search?q=${encodeURIComponent(q.trim())}`)} value="search-all">
+                    Search all SOPs for “{q.trim()}”
+                  </Item>
+                </Command.Group>
+              )}
               <Command.Group heading="Go to">
                 {[
+                  { label: "Home", href: "/", icon: <Home />, show: signedIn },
+                  { label: "Inbox", href: "/inbox", icon: <Inbox />, show: signedIn },
+                  { label: "Tasks", href: "/tasks", icon: <ListTodo />, show: canCreate },
+                  { label: "Projects", href: "/projects", icon: <FolderKanban />, show: signedIn },
+                  { label: "Runs", href: "/runs", icon: <ListChecks />, show: signedIn },
+                  { label: "Contractors", href: "/contractors", icon: <HardHat />, show: canCreate },
+                  { label: "Roster", href: "/roster", icon: <Users />, show: signedIn },
+                  { label: "Training", href: "/training", icon: <GraduationCap />, show: signedIn },
+                  { label: "Gear", href: "/gear", icon: <Box />, show: canCreate },
+                  { label: "Reviews", href: "/reviews", icon: <CalendarClock />, show: canCreate },
+                  { label: "Budgets", href: "/purchasing", icon: <ShoppingCart />, show: canCreate },
+                  { label: "Snippets", href: "/snippets", icon: <Puzzle />, show: canCreate },
+                  { label: "Analytics", href: "/analytics", icon: <BarChart3 />, show: canCreate },
                   { label: "All SOPs", href: "/sops", icon: <BookOpen />, show: true },
                   { label: "New SOP", href: "/sops/new", icon: <FilePlus2 />, show: canCreate },
-                  { label: "Search with filters", href: `/search${q ? `?q=${encodeURIComponent(q)}` : ""}`, icon: <Search />, show: true },
+                  { label: "Search with filters", href: `/search${q ? `?q=${encodeURIComponent(q)}` : ""}`, icon: <Search />, show: !q.trim() },
                   { label: "Profile & password", href: "/profile", icon: <KeyRound />, show: signedIn },
                 ]
                   .filter((i) => i.show && match(q, i.label))

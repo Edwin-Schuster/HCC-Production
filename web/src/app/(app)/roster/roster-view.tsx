@@ -1,48 +1,33 @@
 "use client";
 
-import { MapPin, Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { checkInAction, deletePersonAction, deleteRoleAction, savePersonAction, saveRoleAction } from "@/app/actions/roster";
-import { Ago, useNow } from "@/components/local-date";
+import { deletePersonAction, deleteRoleAction, savePersonAction, saveRoleAction } from "@/app/actions/roster";
 import { Empty, PageHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
-import { PERSON_STATUSES, PERSON_STATUS_LABEL, freshness, type PersonStatus } from "@/lib/roster";
-import { StatusDot } from "@/components/work/badges";
-import { cn } from "@/lib/utils";
 import type { RosterPerson, RosterRole } from "@/server/services/roster";
 
 type Account = { id: string; name: string; username: string };
-
-const FRESH = { fresh: "text-good", recent: "text-muted", stale: "text-warn" } as const;
-
 
 function initials(name: string) {
   return name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 }
 
-export function RosterView({ people, roles, me, accounts, canEdit, checkIn = false }: { people: RosterPerson[]; roles: RosterRole[]; me: RosterPerson | null; accounts: Account[]; canEdit: boolean; checkIn?: boolean }) {
-  const [checkingIn, setCheckingIn] = useState<RosterPerson | null>(checkIn ? me : null);
+export function RosterView({ people, roles, me, accounts, canEdit }: { people: RosterPerson[]; roles: RosterRole[]; me: RosterPerson | null; accounts: Account[]; canEdit: boolean }) {
   const [editing, setEditing] = useState<RosterPerson | "new" | null>(null);
   const [editingRole, setEditingRole] = useState<RosterRole | "new" | null>(null);
-  const now = useNow();
   const roleById = new Map(roles.map((r) => [r.id, r]));
-  const counts = PERSON_STATUSES.map((s) => [s, people.filter((p) => p.status === s).length] as const).filter(([, n]) => n);
 
   return (
     <>
       <PageHeader
         title="Roster"
-        subtitle={`${people.length} ${people.length === 1 ? "person" : "people"} on the production team${counts.length ? " · " + counts.map(([s, n]) => `${n} ${PERSON_STATUS_LABEL[s].toLowerCase()}`).join(" · ") : ""}`}
+        subtitle={`${people.length} ${people.length === 1 ? "person" : "people"} on the production team`}
         actions={
           <>
-            {me && (
-              <Button variant="primary" onClick={() => setCheckingIn(me)}>
-                <MapPin /> Check in
-              </Button>
-            )}
             {canEdit && (
               <Button onClick={() => setEditing("new")}>
                 <Plus /> Person
@@ -51,12 +36,10 @@ export function RosterView({ people, roles, me, accounts, canEdit, checkIn = fal
           </>
         }
       />
-      {!me && <p className="mb-4 rounded-[8px] border border-line bg-surface px-4 py-2.5 text-[13px] text-muted">Your account isn&apos;t linked to the roster yet, so you can&apos;t check in. Ask an editor to link it.</p>}
 
       {people.length ? (
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" role="list">
           {people.map((p) => {
-            const fresh = now === null ? null : freshness(p.lastCheckIn, now);
             return (
               <li key={p.id} className="flex flex-col gap-3 rounded-[12px] border border-line bg-surface p-4" data-testid="person-card">
                 <div className="flex items-start gap-3">
@@ -80,21 +63,7 @@ export function RosterView({ people, roles, me, accounts, canEdit, checkIn = fal
                     </Button>
                   )}
                 </div>
-                <div className="flex items-baseline gap-2 text-[13px]">
-                  <StatusDot status={p.status} />
-                  <span className="font-[510] text-fg-hi">{PERSON_STATUS_LABEL[p.status]}</span>
-                  {p.statusNote && <span className="min-w-0 truncate text-muted">— {p.statusNote}</span>}
-                </div>
-                <div className="flex items-center justify-between gap-2 text-xs">
-                  <span className={cn("flex items-center gap-1", fresh ? FRESH[fresh] : "text-muted")}>
-                    <MapPin className="size-3" /> Last check-in <Ago iso={p.lastCheckIn} />
-                  </span>
-                  {(canEdit || p.id === me?.id) && (
-                    <Button variant="link" className="text-xs" onClick={() => setCheckingIn(p)}>
-                      Update
-                    </Button>
-                  )}
-                </div>
+
                 {(p.phone || p.email) && (
                   <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-line pt-2.5 font-mono text-xs text-fg-2">
                     {p.phone && <a href={`tel:${p.phone.replace(/[^\d+]/g, "")}`} className="hover:text-fg-hi">{p.phone}</a>}
@@ -106,7 +75,7 @@ export function RosterView({ people, roles, me, accounts, canEdit, checkIn = fal
           })}
         </ul>
       ) : (
-        <Empty title="No one on the roster yet">{canEdit ? "Add the people on your production team so they can check in." : "An editor hasn't added anyone yet."}</Empty>
+        <Empty title="No one on the roster yet">{canEdit ? "Add the people on your production team." : "An editor hasn't added anyone yet."}</Empty>
       )}
 
       <section className="mt-10">
@@ -136,7 +105,7 @@ export function RosterView({ people, roles, me, accounts, canEdit, checkIn = fal
                   {filled.length ? (
                     filled.map((p) => (
                       <span key={p.id} className="flex items-center gap-2">
-                        <StatusDot status={p.status} /> {p.name}
+                        {p.name}
                       </span>
                     ))
                   ) : (
@@ -149,57 +118,9 @@ export function RosterView({ people, roles, me, accounts, canEdit, checkIn = fal
         </ul>
       </section>
 
-      <CheckInDialog person={checkingIn} self={checkingIn?.id === me?.id} onClose={() => setCheckingIn(null)} />
       {canEdit && <PersonDialog key={editing === "new" ? "new" : editing?.id} person={editing} roles={roles} accounts={accounts} people={people} onClose={() => setEditing(null)} />}
       {canEdit && <RoleDialog key={editingRole === "new" ? "new" : editingRole?.id} role={editingRole} onClose={() => setEditingRole(null)} />}
     </>
-  );
-}
-
-function CheckInDialog({ person, self, onClose }: { person: RosterPerson | null; self: boolean; onClose: () => void }) {
-  const [pending, start] = useTransition();
-  return (
-    <Dialog open={person !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent title={self ? "Check in" : `Update ${person?.name}`} description="Let the team know where you are.">
-        {person && (
-          <form
-            className="grid gap-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const fd = new FormData(e.currentTarget);
-              start(async () => {
-                const res = await checkInAction({ status: fd.get("status") as PersonStatus, note: String(fd.get("note") ?? ""), personId: self ? undefined : person.id });
-                if (res.ok) {
-                  toast(self ? "Checked in" : "Updated");
-                  onClose();
-                } else toast.error(res.error);
-              });
-            }}
-          >
-            <fieldset className="grid gap-1.5">
-              <legend className="mb-1.5 text-xs font-[510] text-muted">Status</legend>
-              {PERSON_STATUSES.map((s) => (
-                <label key={s} className="flex cursor-pointer items-center gap-2.5 rounded-[6px] border border-line px-3 py-2 text-[13px] text-fg-2 has-[:checked]:border-fg-2 has-[:checked]:text-fg-hi">
-                  <input type="radio" name="status" value={s} defaultChecked={person.status === s} className="accent-[var(--color-cta)]" />
-                  <StatusDot status={s} /> {PERSON_STATUS_LABEL[s]}
-                </label>
-              ))}
-            </fieldset>
-            <Field label="Note" htmlFor="ci-note" hint="Optional, e.g. “FOH for both services”.">
-              <Input id="ci-note" name="note" defaultValue={person.statusNote} maxLength={200} />
-            </Field>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button type="submit" variant="primary" disabled={pending}>
-                {self ? "Check in" : "Save"}
-              </Button>
-            </div>
-          </form>
-        )}
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -250,7 +171,7 @@ function PersonDialog({ person, roles, accounts, people, onClose }: { person: Ro
               ))}
             </div>
           </fieldset>
-          <Field label="Account" htmlFor="p-user" hint="Linking an account lets them check themselves in.">
+          <Field label="Account" htmlFor="p-user" hint="Linking an account shows them as “you” here and keeps their name in sync.">
             <Select id="p-user" name="userId" defaultValue={current?.userId ?? ""}>
               <option value="">Not linked</option>
               {accounts.map((a) => (

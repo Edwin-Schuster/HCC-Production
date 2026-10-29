@@ -1,7 +1,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { Executor } from "@/db";
-import { sessions, users, workspaceMembers, workspaces } from "@/db/schema";
+import { people, sessions, users, workspaceMembers, workspaces } from "@/db/schema";
 import { hashPassword } from "@/server/auth/password";
 import { forbidden, invalid } from "@/server/errors";
 import { canManageMembers, type Actor, type Role } from "@/server/permissions";
@@ -69,5 +69,20 @@ export async function upsertMember(db: Executor, actor: Actor, input: z.input<ty
       .values({ workspaceId: actor.workspaceId, userId: id!, role: data.role })
       .onConflictDoUpdate({ target: [workspaceMembers.workspaceId, workspaceMembers.userId], set: { role: data.role } });
     return id!;
+  });
+}
+
+export const ProfileInput = z.object({
+  name: z.string().trim().min(1, "Name is required").max(80),
+  email: z.string().trim().email("That email doesn't look right").max(200).or(z.literal("")).optional(),
+});
+
+/** Anyone signed in can change their own display name and email; their roster entry follows. */
+export async function updateOwnProfile(db: Executor, actor: Actor, input: z.input<typeof ProfileInput>) {
+  if (!actor.userId) throw forbidden("Sign in to change your profile.");
+  const data = ProfileInput.parse(input);
+  await db.transaction(async (tx) => {
+    await tx.update(users).set({ name: data.name, email: data.email || null }).where(eq(users.id, actor.userId!));
+    await tx.update(people).set({ name: data.name }).where(and(eq(people.workspaceId, actor.workspaceId), eq(people.userId, actor.userId!)));
   });
 }

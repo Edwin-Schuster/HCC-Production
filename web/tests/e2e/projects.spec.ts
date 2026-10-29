@@ -13,7 +13,7 @@ test("create a project, then plan and track its tasks", async ({ page }) => {
   await Promise.all([page.waitForURL(/\/projects\/[\w-]+$/), page.getByRole("button", { name: "Create project" }).click()]);
   await expect(page.getByRole("heading", { level: 1, name: /Lobby Screens/ })).toBeVisible();
 
-  await page.getByRole("link", { name: "Tasks", exact: true }).click();
+  await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Tasks", exact: true }).click();
   await page.getByLabel("New task title").fill("Mount the displays");
   await page.getByLabel("New task title").press("Enter");
   await expect(page.getByRole("button", { name: "Mount the displays" })).toBeVisible();
@@ -70,7 +70,19 @@ test("members see the schedule but not the details", async ({ page, browser }) =
   await expect(viewer.getByText("budget")).toHaveCount(0);
   await viewer.getByRole("link", { name: /Youth Room Install/ }).first().click();
   await expect(viewer.getByText(/visible to production editors only/)).toBeVisible();
-  await expect(viewer.getByRole("link", { name: "Tasks" })).toHaveCount(0);
+  await expect(viewer.getByRole("link", { name: "Tasks" })).toHaveCount(0); // neither the project tab nor the sidebar
   await viewer.goto(viewer.url() + "/tasks");
   await expect(viewer).toHaveURL(/denied=1/);
+});
+
+test("general tasks live on the Tasks page, outside any project", async ({ page }) => {
+  await signIn(page);
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Tasks" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Tasks" })).toBeVisible();
+  await page.getByLabel("New task title").fill("Order spare batteries");
+  await page.getByLabel("New task title").press("Enter");
+  await page.getByRole("button", { name: "Order spare batteries" }).click();
+  await expect(page.getByRole("dialog")).toContainText("General tasks");
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Order spare batteries" })).toBeVisible();
 });

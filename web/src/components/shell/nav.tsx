@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, BookOpen, Box, House, ShoppingCart, CalendarClock, ChevronRight, Folder, FolderKanban, FolderOpen, GraduationCap, HardHat, Inbox, ListChecks, Puzzle, Search, Users } from "lucide-react";
+import { BarChart3, BookOpen, Box, House, ListTodo, ShoppingCart, CalendarClock, ChevronRight, Folder, FolderKanban, FolderOpen, GraduationCap, HardHat, Inbox, ListChecks, Puzzle, Search, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
@@ -48,4 +48,4 @@ export function FolderTree({ folders }: { folders: NavFolder[] }) {
   );
 }
 
-export const NavIcons = { home: <House />, library: <BookOpen />, search: <Search />, snippets: <Puzzle />, inbox: <Inbox />, reviews: <CalendarClock />, runs: <ListChecks />, analytics: <BarChart3 />, training: <GraduationCap />, roster: <Users />, projects: <FolderKanban />, gear: <Box />, contractors: <HardHat />, purchasing: <ShoppingCart /> };
+export const NavIcons = { home: <House />, tasks: <ListTodo />, library: <BookOpen />, search: <Search />, snippets: <Puzzle />, inbox: <Inbox />, reviews: <CalendarClock />, runs: <ListChecks />, analytics: <BarChart3 />, training: <GraduationCap />, roster: <Users />, projects: <FolderKanban />, gear: <Box />, contractors: <HardHat />, purchasing: <ShoppingCart /> };

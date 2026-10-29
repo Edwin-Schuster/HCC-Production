@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { freshness } from "@/lib/roster";
 import { checkIn, createPerson, createRole, deleteRole, listRoster, updatePerson } from "@/server/services/roster";
+import { updateOwnProfile } from "@/server/services/workspace";
 import { testDb } from "./helpers";
 
 let t: Awaited<ReturnType<typeof testDb>>;
@@ -57,5 +58,15 @@ describe("roster", () => {
     const after = (await listRoster(t.db, editor)).people.find((x) => x.id === p.id)!;
     expect(after.roleIds).toEqual([]);
     await expect(updatePerson(t.db, editor, p.id, { name: "Pat", roleIds: [role.id] })).rejects.toThrow(/no longer exists/);
+  });
+
+  it("lets anyone rename themselves, and their roster card follows", async () => {
+    const viewer = await t.actorFor("viewer", "pf-vw");
+    const editor = await t.actorFor("editor", "pf-ed");
+    await createPerson(t.db, editor, { name: "Administrator", userId: viewer.userId });
+    await updateOwnProfile(t.db, viewer, { name: "  Edwin Schuster ", email: "" });
+    expect((await listRoster(t.db, viewer)).me?.name).toBe("Edwin Schuster");
+    await expect(updateOwnProfile(t.db, viewer, { name: " " })).rejects.toThrow();
+    await expect(updateOwnProfile(t.db, t.publicActor, { name: "X" })).rejects.toThrow(/Sign in/);
   });
 });

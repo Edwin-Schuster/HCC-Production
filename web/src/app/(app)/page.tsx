@@ -11,12 +11,11 @@ import { unreadCount } from "@/server/services/notifications";
 import { listProjects, type Project } from "@/server/services/projects";
 import { listRoster } from "@/server/services/roster";
 import { listSops } from "@/server/services/sops";
-import { myTasks } from "@/server/services/tasks";
+import { myTasks, taskLink } from "@/server/services/tasks";
 import { Page, PageHeader } from "@/components/page";
 import { Ago } from "@/components/local-date";
-import { Greeting, CheckInCard } from "@/components/work/home";
-import { Meter, PriorityBadge, ProjectStatusBadge, StatusDot } from "@/components/work/badges";
-import { PERSON_STATUS_LABEL } from "@/lib/roster";
+import { Greeting } from "@/components/work/home";
+import { Meter, PriorityBadge, ProjectStatusBadge } from "@/components/work/badges";
 import { ActivityList } from "@/components/work/overview";
 import { formatDay } from "@/lib/format";
 import { addDays, isOverdue, today } from "@/lib/work";
@@ -65,11 +64,12 @@ async function Dashboard() {
   const overdue = mine.filter((x) => isOverdue(x, t));
   const week = mine.filter((x) => x.due && !isOverdue(x, t) && x.due <= addDays(t, 7));
   const later = mine.filter((x) => !overdue.includes(x) && !week.includes(x));
-  const people = [...roster.people].sort((a, b) => (b.lastCheckIn ?? "").localeCompare(a.lastCheckIn ?? "")).slice(0, 6);
+  const people = roster.people.slice(0, 8);
+  const roleName = new Map(roster.roles.map((r) => [r.id, r.name]));
 
   const taskRow = (x: (typeof mine)[number]) => (
     <li key={x.id}>
-      <Link href={`/projects/${x.projectId}/tasks?task=${x.id}`} className="-mx-2 flex items-center gap-3 rounded-[6px] px-2 py-1.5 hover:bg-wash-2">
+      <Link href={taskLink(x)} className="-mx-2 flex items-center gap-3 rounded-[6px] px-2 py-1.5 hover:bg-wash-2">
         <span className={cn("w-12 shrink-0 font-mono text-xs", isOverdue(x, t) ? "text-bad" : "text-muted")}>{x.due ? formatDay(x.due, { month: "short", day: "numeric" }) : "—"}</span>
         <span className="min-w-0 flex-1 truncate text-[13.5px] text-fg-hi">
           {x.title}
@@ -105,7 +105,6 @@ async function Dashboard() {
         }
       />
       <div className="grid grid-cols-1 gap-4">
-        <CheckInCard me={roster.me} />
         {warnings.length > 0 && (
           <p role="alert" className="flex items-start gap-2 rounded-[8px] border border-warn/40 bg-warn-soft px-3 py-2 text-[13px] text-warn">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" />
@@ -164,9 +163,7 @@ async function Dashboard() {
               {people.map((p) => (
                 <li key={p.id} className="flex items-center gap-2 text-[13px]">
                   <span className="min-w-0 flex-1 truncate text-fg-hi">{p.name}</span>
-                  <StatusDot status={p.status} />
-                  <span className="text-xs text-fg-2">{PERSON_STATUS_LABEL[p.status]}</span>
-                  <Ago iso={p.lastCheckIn} className="w-20 text-right text-xs text-muted" />
+                  <span className="truncate text-xs text-muted">{p.roleIds.map((id) => roleName.get(id)).filter(Boolean).join(", ")}</span>
                 </li>
               ))}
               {!people.length && <li className="text-[13px] text-muted">No one on the roster yet.</li>}

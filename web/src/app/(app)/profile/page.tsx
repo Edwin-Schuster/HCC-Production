@@ -8,9 +8,10 @@ import { atLeast } from "@/server/permissions";
 import { listApiKeys } from "@/server/services/apikeys";
 import { ApiKeys } from "@/components/api-keys";
 import { getNtfyTopic } from "@/server/services/push";
-import { workspaces } from "@/db/schema";
+import { users, workspaces } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { PhoneAlerts } from "./phone-alerts";
+import { ProfileForm } from "./profile-form";
 
 export const metadata: Metadata = { title: "Profile" };
 
@@ -27,11 +28,21 @@ export default function ProfilePage() {
 async function Content() {
   const actor = await requireRole("viewer", "/profile");
   const db = await getDb();
-  const [topic, [ws]] = await Promise.all([getNtfyTopic(db, actor), db.select({ settings: workspaces.settings }).from(workspaces).where(eq(workspaces.id, actor.workspaceId))]);
+  const [topic, [ws], [me]] = await Promise.all([
+    getNtfyTopic(db, actor),
+    db.select({ settings: workspaces.settings }).from(workspaces).where(eq(workspaces.id, actor.workspaceId)),
+    db.select({ name: users.name, email: users.email }).from(users).where(eq(users.id, actor.userId!)),
+  ]);
   return (
     <>
       <PageHeader title={actor.name} subtitle={`Signed in as ${actor.username} · ${actor.role}`} />
-      <section className="max-w-md rounded-[12px] border border-line bg-surface p-5">
+      <section className="max-w-md rounded-[12px] border border-line bg-surface p-5" aria-labelledby="profile-h">
+        <h2 id="profile-h" className="mb-4 text-[15px]">
+          Your details
+        </h2>
+        <ProfileForm key={me?.name} name={me?.name ?? actor.name} email={me?.email ?? ""} />
+      </section>
+      <section className="mt-8 max-w-md rounded-[12px] border border-line bg-surface p-5">
         <h2 className="mb-4 text-[15px]">Change password</h2>
         <PasswordForm />
       </section>

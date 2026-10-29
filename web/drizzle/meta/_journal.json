@@ -71,6 +71,13 @@
       "when": 1793147073590,
       "tag": "0009_legacy_ids",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793288541473,
+      "tag": "0010_general_tasks",
+      "breakpoints": true
     }
   ]
 }

@@ -17,11 +17,12 @@ The production team app for Hope Christian Church: SOPs, the roster, projects, c
 
 Production modules:
 
-- **Home:** your status and check-in, your tasks by due date, contractor insurance warnings, active projects, recent activity.
-- **Roster:** people, production roles and check-ins; check-ins older than a week are highlighted.
+- **Home:** your tasks by due date, the team and their roles, contractor insurance warnings, active projects, recent activity.
+- **Roster:** people and the production roles they fill. Everyone can change their own name and email on their Profile; admins can rename anyone under People & roles.
+- **Tasks:** your assigned project tasks in one list, plus **general tasks** that don't belong to any project.
 - **Projects:** tasks in **list, board, calendar and timeline** views, with subtasks, assignees, labels, dates, files, comments with @mentions and a readable history. Due-date reminders, a subscribable **calendar feed**, CSV export and a printable **project report**.
 - **Cabling and room layouts:** a cable schedule with footage by type and printable labels for both ends; floor plans with zones, devices linked to gear and cable runs linked to the schedule. Works with touch.
-- **Budgets and purchasing:** bill of materials, purchase orders with lines and attachments, receiving (which updates the BOM), and planned / committed / spent / remaining by category.
+- **Budgets** (purchasing): bill of materials, purchase orders with lines and attachments, receiving (which updates the BOM), and planned / committed / spent / remaining by category.
 - **Contractors:** directory with insurance-expiry warnings and documents, scopes of work in Markdown, site access (also in the calendar feed), punch lists with photos, and invoices.
 - **Gear:** inventory with serials, asset tags and addresses, a printable firmware label with update history, and config backups with a viewer that has line numbers and a filter.
 - **On site:** bottom tabs on phones, camera buttons, project photos by location, and install-to-home-screen. Notifications also go to phones through [ntfy](https://ntfy.sh): each person sets a topic on their Profile.
@@ -36,7 +37,7 @@ npm install
 ADMIN_USER=admin ADMIN_PASSWORD=change-me npm run dev
 ```
 
-Open http://localhost:3000 and sign in. With no `DATABASE_URL`, the app uses an embedded Postgres (PGlite) in `web/.data/`, so you don't need a database server to develop. On first start it creates the admin account and, unless `SEED_DEMO=false`, demo content: SOPs, the roster, two projects with tasks, cabling, purchasing, contractors and gear. Delete `web/.data/` to start over.
+Open http://localhost:3000 and sign in. The development server also accepts `127.0.0.1`, `*.local` names (like `Your-Mac.local`) and this computer's own network addresses, so a phone on the same Wi-Fi works too. For any other address, list it in `DEV_ORIGINS` (comma-separated); otherwise the page loads but no buttons respond, because the dev server refuses to send its scripts to unknown addresses. The production build (`npm run build && npm start`, or Docker) has no such limit. With no `DATABASE_URL`, the app uses an embedded Postgres (PGlite) in `web/.data/`, so you don't need a database server to develop. On first start it creates the admin account and, unless `SEED_DEMO=false`, demo content: SOPs, the roster, two projects with tasks, cabling, purchasing, contractors and gear. Delete `web/.data/` to start over.
 
 PDF export needs Chromium: `npx playwright install chromium` once.
 
@@ -92,6 +93,7 @@ Outside Docker: `npm run import:legacy -- /path/to/old/data` (the folder holding
 | `DISABLE_PUSH` | `false` | Set `true` to stop sending phone notifications through ntfy. |
 | `INTERNAL_URL` | `http://127.0.0.1:$PORT` | Address the PDF renderer uses to load the print page. Only change it if the app can't reach itself on localhost. |
 | `CHROMIUM_PATH` | Playwright's Chromium | Use a different Chromium for PDF export. |
+| `DEV_ORIGINS` | none | Extra host names the development server will serve its scripts to, comma-separated, e.g. `hcc.lan,10.0.0.5`. Development only. |
 | `MIGRATIONS_DIR` | `./drizzle` | Set in the Docker image. |
 | `NEXT_PUBLIC_APP_TIMEZONE` | server time zone | Time zone for dates rendered on the server and in PDFs, such as `America/Chicago`. Applied at build time. |
 

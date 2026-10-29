@@ -48,7 +48,7 @@ export function TasksView({
   calendarFeed,
   selfId,
 }: {
-  projectId: string;
+  projectId: string | null;
   projectName: string;
   tasks: TaskView[];
   members: Member[];
@@ -252,7 +252,7 @@ function DoneBox({ t, onToggle, small }: { t: TaskView; onToggle: () => void; sm
   );
 }
 
-function ListView({ ctx, projectId }: { ctx: Ctx; projectId: string }) {
+function ListView({ ctx, projectId }: { ctx: Ctx; projectId: string | null }) {
   const [title, setTitle] = useState("");
   const [pending, start] = useTransition();
   const ids = new Set(ctx.visible.map((t) => t.id));
@@ -537,7 +537,7 @@ function TimelineView({ ctx }: { ctx: Ctx }) {
   return <Gantt rows={rows} today={ctx.today} label="Task timeline" />;
 }
 
-function NewTaskDialog({ projectId, initial, members, onClose, onCreated }: { projectId: string; initial: Partial<TaskView> | null; members: Member[]; onClose: () => void; onCreated: (id: string) => void }) {
+function NewTaskDialog({ projectId, initial, members, onClose, onCreated }: { projectId: string | null; initial: Partial<TaskView> | null; members: Member[]; onClose: () => void; onCreated: (id: string) => void }) {
   const [pending, start] = useTransition();
   return (
     <Dialog open={initial !== null} onOpenChange={(o) => !o && onClose()}>

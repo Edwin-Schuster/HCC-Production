@@ -24,7 +24,7 @@ export type OpenTask = {
   subtasks: TaskView[];
   comments: WorkComment[];
   history: ActivityItem[];
-  project: { id: string; name: string };
+  project: { id: string; name: string } | null;
   parent: { id: string; title: string } | null;
 };
 
@@ -118,7 +118,7 @@ function Drawer({ data, members, selfId, today, onClose, onOpen }: { data: OpenT
             <ArrowUp className="size-3.5" /> {data.parent.title}
           </button>
         ) : (
-          data.project.name
+          (data.project?.name ?? "General tasks")
         )
       }
       description="Task details"

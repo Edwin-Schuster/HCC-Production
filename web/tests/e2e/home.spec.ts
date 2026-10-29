@@ -4,14 +4,14 @@ import { signIn } from "./helpers";
 // A 1×1 PNG.
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 
-test("home shows my status, my tasks and insurance warnings; check in from there", async ({ page }) => {
+test("home shows my tasks, the team and insurance warnings", async ({ page }) => {
   await signIn(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("E2E");
   await expect(page.getByRole("heading", { name: "My tasks" })).toBeVisible();
   await expect(page.getByRole("alert").filter({ hasText: "Summit Rigging" })).toBeVisible();
-  await page.getByRole("link", { name: "Check in" }).click();
-  await expect(page.getByRole("dialog", { name: "Check in" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Team" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Check in" })).toHaveCount(0);
 });
 
 test("add site photos by location, then print the project report", async ({ page }) => {

@@ -700,9 +700,8 @@ export const tasks = pgTable(
   {
     id: id(),
     workspaceId: ws(),
-    projectId: text("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+    /** Null for general tasks that don't belong to a project. */
+    projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
     parentId: text("parent_id").references((): AnyPgColumn => tasks.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     description: text("description").notNull().default(""),

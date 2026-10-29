@@ -4,7 +4,7 @@ import { notifications, tasks } from "@/db/schema";
 import { addDays, today } from "@/lib/work";
 import { listActivity } from "@/server/services/activity";
 import { createProject, getProject, listProjects, updateProject } from "@/server/services/projects";
-import { commentOnTask, createTask, getTask, listTasks, moveTask, sweepTaskReminders, updateTask, zonedInstant } from "@/server/services/tasks";
+import { commentOnTask, createTask, getTask, listTasks, moveTask, myTasks, sweepTaskReminders, taskLink, updateTask, zonedInstant } from "@/server/services/tasks";
 import { testDb } from "./helpers";
 
 let t: Awaited<ReturnType<typeof testDb>>;
@@ -118,5 +118,19 @@ describe("tasks", () => {
   it("converts local wall-clock time to an instant", () => {
     expect(zonedInstant("2026-07-01", 17, "America/Chicago").toISOString()).toBe("2026-07-01T22:00:00.000Z");
     expect(zonedInstant("2026-01-15", 17, "America/Chicago").toISOString()).toBe("2026-01-15T23:00:00.000Z");
+  });
+
+  it("keeps general tasks apart from project tasks", async () => {
+    const editor = await t.actorFor("editor", "gt-ed");
+    const p = await createProject(t.db, editor, { name: "Gen Test", status: "active" });
+    await createTask(t.db, editor, { projectId: p.id, title: "In a project" });
+    const g = await createTask(t.db, editor, { title: "Restock gaff tape", assignees: [editor.userId!] });
+    const general = await listTasks(t.db, editor, null);
+    expect(general.map((x) => x.title)).toContain("Restock gaff tape");
+    expect(general.map((x) => x.title)).not.toContain("In a project");
+    expect((await listTasks(t.db, editor, p.id)).map((x) => x.title)).not.toContain("Restock gaff tape");
+    expect((await getTask(t.db, editor, g.id)).project).toBeNull();
+    expect(taskLink(g)).toBe(`/tasks?task=${g.id}`);
+    expect((await myTasks(t.db, editor)).find((x) => x.id === g.id)?.project).toBe("General");
   });
 });

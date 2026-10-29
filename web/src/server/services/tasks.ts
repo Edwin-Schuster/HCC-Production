@@ -12,11 +12,14 @@ import { Day, loadProject, requireEditor } from "./projects";
 import { emit } from "./webhooks";
 import { Attachments } from "./files";
 
-/** Tasks belong to a project; subtasks are tasks with a parent in the same project. Editors only. */
+/**
+ * Tasks belong to a project, or to no project ("general tasks"); subtasks are tasks with a parent in the same
+ * project (or also general). Editors only.
+ */
 
 export type TaskView = {
   id: string;
-  projectId: string;
+  projectId: string | null;
   parentId: string | null;
   title: string;
   description: string;
@@ -51,7 +54,8 @@ const Fields = {
 };
 
 export const TaskInput = z.object({
-  projectId: z.string().min(1).max(64),
+  /** Null for a general task. */
+  projectId: z.string().min(1).max(64).nullable().default(null),
   title: Fields.title,
   description: Fields.description.default(""),
   status: Fields.status.default("todo"),
@@ -90,12 +94,16 @@ const toView = (t: typeof tasks.$inferSelect, extra: { createdByName: string | n
 const commentCount = sql<number>`(select count(*)::int from ${workComments} c where c.target_type = 'task' and c.target_id = "tasks"."id")`;
 const creatorName = sql<string | null>`(select name from ${users} u where u.id = "tasks"."created_by")`;
 
-export async function listTasks(db: Executor, actor: Actor, projectId: string): Promise<TaskView[]> {
-  await loadProject(db, actor, projectId);
+/** Tasks in one project's scope, or the general tasks when projectId is null. */
+const scope = (actor: Actor, projectId: string | null) => (projectId ? eq(tasks.projectId, projectId) : and(isNull(tasks.projectId), eq(tasks.workspaceId, actor.workspaceId)));
+
+export async function listTasks(db: Executor, actor: Actor, projectId: string | null): Promise<TaskView[]> {
+  if (projectId) await loadProject(db, actor, projectId);
+  else requireEditor(actor, "tasks");
   const rows = await db
     .select({ t: tasks, createdByName: creatorName, commentCount })
     .from(tasks)
-    .where(eq(tasks.projectId, projectId))
+    .where(scope(actor, projectId))
     .orderBy(asc(tasks.position), asc(tasks.createdAt));
   return rows.map(({ t, ...extra }) => toView(t, extra));
 }
@@ -128,28 +136,29 @@ async function checkAssignees(db: Executor, actor: Actor, ids: string[]) {
 
 const cleanLabels = (labels: string[]) => [...new Map(labels.map((l) => [l.toLowerCase(), l])).values()];
 
-async function checkParent(db: Executor, projectId: string, parentId: string | null, selfId?: string) {
+async function checkParent(db: Executor, projectId: string | null, parentId: string | null, selfId?: string) {
   if (!parentId) return;
   // Walk up from the new parent: it must be in this project and must not be the task itself or one of its subtasks.
   let cursor: string | null = parentId;
   for (let depth = 0; cursor; depth++) {
     if (cursor === selfId) throw invalid("A task can't be a subtask of itself.");
     if (depth > 20) throw invalid("Subtasks are nested too deeply.");
-    const [p]: { projectId: string; parentId: string | null }[] = await db.select({ projectId: tasks.projectId, parentId: tasks.parentId }).from(tasks).where(eq(tasks.id, cursor)).limit(1);
+    const [p]: { projectId: string | null; parentId: string | null }[] = await db.select({ projectId: tasks.projectId, parentId: tasks.parentId }).from(tasks).where(eq(tasks.id, cursor)).limit(1);
     if (!p || p.projectId !== projectId) throw invalid("The parent task must be in the same project.");
     cursor = p.parentId;
   }
 }
 
-async function nextPosition(db: Executor, projectId: string, status: string) {
+async function nextPosition(db: Executor, actor: Actor, projectId: string | null, status: string) {
   const [r] = await db
     .select({ max: sql<number | null>`max(${tasks.position})` })
     .from(tasks)
-    .where(and(eq(tasks.projectId, projectId), eq(tasks.status, status)));
+    .where(and(scope(actor, projectId), eq(tasks.status, status)));
   return (r?.max ?? 0) + 1;
 }
 
-const link = (t: { projectId: string; id: string }) => `/projects/${t.projectId}/tasks?task=${t.id}`;
+export const taskLink = (t: { projectId: string | null; id: string }) => (t.projectId ? `/projects/${t.projectId}/tasks?task=${t.id}` : `/tasks?task=${t.id}`);
+const link = taskLink;
 
 async function notifyAssigned(db: Executor, actor: Actor, t: typeof tasks.$inferSelect, userIds: string[]) {
   await notify(db, {
@@ -166,8 +175,8 @@ async function notifyAssigned(db: Executor, actor: Actor, t: typeof tasks.$infer
 export async function createTask(db: Executor, actor: Actor, input: z.input<typeof TaskInput>) {
   requireEditor(actor, "tasks");
   const data = TaskInput.parse(input);
-  const project = await loadProject(db, actor, data.projectId);
-  await checkParent(db, project.id, data.parentId);
+  const project = data.projectId ? await loadProject(db, actor, data.projectId) : null;
+  await checkParent(db, project?.id ?? null, data.parentId);
   const assignees = await checkAssignees(db, actor, data.assignees);
   if (data.start && data.due && data.due < data.start) throw invalid("The due date is before the start date.");
   const [row] = await db
@@ -177,14 +186,14 @@ export async function createTask(db: Executor, actor: Actor, input: z.input<type
       ...data,
       assignees,
       labels: cleanLabels(data.labels),
-      position: await nextPosition(db, project.id, data.status),
+      position: await nextPosition(db, actor, project?.id ?? null, data.status),
       completedAt: data.status === "done" ? new Date() : null,
       createdBy: actor.userId,
     })
     .returning();
-  await logActivity(db, actor, { projectId: project.id, targetType: "task", targetId: row.id, targetName: row.title, text: data.parentId ? "added this subtask" : "created this task" });
+  await logActivity(db, actor, { projectId: project?.id ?? null, targetType: "task", targetId: row.id, targetName: row.title, text: data.parentId ? "added this subtask" : "created this task" });
   await notifyAssigned(db, actor, row, assignees);
-  await emit(db, actor.workspaceId, "task.created", { id: row.id, projectId: project.id, project: project.name, title: row.title, status: row.status, due: row.due });
+  await emit(db, actor.workspaceId, "task.created", { id: row.id, projectId: project?.id ?? null, project: project?.name ?? null, title: row.title, status: row.status, due: row.due });
   return toView(row, { createdByName: actor.name, commentCount: 0 });
 }
 
@@ -203,7 +212,7 @@ export async function updateTask(db: Executor, actor: Actor, id: string, patch: 
   const set: Partial<typeof tasks.$inferInsert> = { ...data, updatedAt: new Date() };
   if (data.status && data.status !== before.status) {
     set.completedAt = data.status === "done" ? new Date() : null;
-    set.position = await nextPosition(db, before.projectId, data.status);
+    set.position = await nextPosition(db, actor, before.projectId, data.status);
   }
   // A new due date earns a fresh reminder.
   if (data.due !== undefined && data.due !== before.due) Object.assign(set, { reminderSentAt: null, overdueNotifiedAt: null });
@@ -225,7 +234,7 @@ export async function updateTask(db: Executor, actor: Actor, id: string, patch: 
   }
   await logActivity(db, actor, { projectId: row.projectId, targetType: "task", targetId: id, targetName: row.title, text: changes.join(", ") });
   if (set.completedAt && before.status !== "done") {
-    const [p] = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, row.projectId));
+    const [p] = row.projectId ? await db.select({ name: projects.name }).from(projects).where(eq(projects.id, row.projectId)) : [];
     await emit(db, actor.workspaceId, "task.completed", { id, projectId: row.projectId, project: p?.name, title: row.title });
   }
   return row;
@@ -239,7 +248,7 @@ export async function moveTask(db: Executor, actor: Actor, id: string, input: { 
   const column = await db
     .select({ id: tasks.id })
     .from(tasks)
-    .where(and(eq(tasks.projectId, t.projectId), eq(tasks.status, data.status), isNull(tasks.parentId), ne(tasks.id, id)))
+    .where(and(scope(actor, t.projectId), eq(tasks.status, data.status), isNull(tasks.parentId), ne(tasks.id, id)))
     .orderBy(asc(tasks.position), asc(tasks.createdAt));
   const order = column.map((c) => c.id);
   order.splice(Math.min(data.index, order.length), 0, id);
@@ -250,7 +259,7 @@ export async function deleteTask(db: Executor, actor: Actor, id: string) {
   const t = await loadTask(db, actor, id);
   await db.delete(tasks).where(eq(tasks.id, id));
   await db.delete(workComments).where(and(eq(workComments.targetType, "task"), eq(workComments.targetId, id)));
-  await logActivity(db, actor, { projectId: t.projectId, targetType: "project", targetId: t.projectId, targetName: t.title, text: `deleted the task “${t.title}”` });
+  await logActivity(db, actor, t.projectId ? { projectId: t.projectId, targetType: "project", targetId: t.projectId, targetName: t.title, text: `deleted the task “${t.title}”` } : { projectId: null, targetType: "task", targetId: t.id, targetName: t.title, text: "deleted this task" });
 }
 
 export type WorkComment = { id: string; authorId: string | null; authorName: string | null; body: string; createdAt: string };
@@ -274,7 +283,7 @@ export async function getTask(db: Executor, actor: Actor, id: string) {
     db.select({ t: tasks, createdByName: creatorName, commentCount }).from(tasks).where(eq(tasks.parentId, id)).orderBy(asc(tasks.position), asc(tasks.createdAt)),
     listWorkComments(db, actor, "task", id),
     listActivity(db, actor, { targetType: "task", targetId: id }),
-    db.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.id, t.projectId)),
+    t.projectId ? db.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.id, t.projectId)) : Promise.resolve([]),
   ]);
   const [parent] = t.parentId ? await db.select({ id: tasks.id, title: tasks.title }).from(tasks).where(eq(tasks.id, t.parentId)) : [];
   return {
@@ -282,7 +291,7 @@ export async function getTask(db: Executor, actor: Actor, id: string) {
     subtasks: subtasks.map(({ t: s, ...extra }) => toView(s, extra)),
     comments,
     history,
-    project,
+    project: project ?? null,
     parent: parent ?? null,
   };
 }
@@ -314,11 +323,11 @@ export async function myTasks(db: Executor, actor: Actor, limit = 50) {
   const rows = await db
     .select({ t: tasks, project: projects.name, color: projects.color })
     .from(tasks)
-    .innerJoin(projects, eq(projects.id, tasks.projectId))
+    .leftJoin(projects, eq(projects.id, tasks.projectId))
     .where(and(eq(tasks.workspaceId, actor.workspaceId), ne(tasks.status, "done"), sql`${actor.userId} = any(${tasks.assignees})`))
     .orderBy(sql`${tasks.due} asc nulls last`, desc(tasks.priority))
     .limit(limit);
-  return rows.map(({ t, project, color }) => ({ id: t.id, projectId: t.projectId, project, color, title: t.title, due: t.due, status: asStatus(t.status), priority: asPriority(t.priority) }));
+  return rows.map(({ t, project, color }) => ({ id: t.id, projectId: t.projectId, project: project ?? "General", color: color ?? "#a3a3a3", title: t.title, due: t.due, status: asStatus(t.status), priority: asPriority(t.priority) }));
 }
 
 /** The UTC instant of a wall-clock time on a day in a time zone ("5 pm on the due date, local time"). */

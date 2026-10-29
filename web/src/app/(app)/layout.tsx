@@ -51,54 +51,61 @@ async function NavContent() {
   const [folders, sops, unread, training] = await Promise.all([listFolders(db, actor), listSops(db, actor), unreadCount(db, actor), openTrainingCount(db, actor)]);
   const counts = new Map<string, number>();
   for (const s of sops) counts.set(s.folderId, (counts.get(s.folderId) ?? 0) + 1);
-  const reviewsDue = atLeast(actor, "editor") ? sops.filter((s) => s.reviewState === "overdue" || s.reviewState === "due").length : 0;
+  const editor = atLeast(actor, "editor");
+  const reviewsDue = editor ? sops.filter((s) => s.reviewState === "overdue" || s.reviewState === "due").length : 0;
   return (
     <>
       <nav className="grid gap-px" aria-label="Main">
         {actor.userId && (
-          <NavLink href="/" icon={NavIcons.home} exact>
-            Home
-          </NavLink>
-        )}
-        <NavLink href="/sops" icon={NavIcons.library} exact>
-          All SOPs
-        </NavLink>
-        <NavLink href="/search" icon={NavIcons.search}>
-          Search
-        </NavLink>
-        {actor.userId && (
           <>
+            <NavLink href="/" icon={NavIcons.home} exact>
+              Home
+            </NavLink>
             <NavLink href="/inbox" icon={NavIcons.inbox}>
               <Counted count={unread}>Inbox</Counted>
             </NavLink>
+            {editor && (
+              <>
+                <Sep />
+                <NavLink href="/tasks" icon={NavIcons.tasks}>
+                  Tasks
+                </NavLink>
+              </>
+            )}
+            <Sep />
             <NavLink href="/projects" icon={NavIcons.projects}>
               Projects
-            </NavLink>
-            <NavLink href="/roster" icon={NavIcons.roster}>
-              Roster
             </NavLink>
             <NavLink href="/runs" icon={NavIcons.runs}>
               Runs
             </NavLink>
+            {editor && (
+              <NavLink href="/contractors" icon={NavIcons.contractors}>
+                Contractors
+              </NavLink>
+            )}
+            <NavLink href="/roster" icon={NavIcons.roster}>
+              Roster
+            </NavLink>
+            <Sep />
             <NavLink href="/training" icon={NavIcons.training}>
               <Counted count={training}>Training</Counted>
             </NavLink>
           </>
         )}
-        {atLeast(actor, "editor") && (
+        {editor && (
           <>
-            <NavLink href="/reviews" icon={NavIcons.reviews}>
-              <Counted count={reviewsDue}>Reviews</Counted>
-            </NavLink>
+            <Sep />
             <NavLink href="/gear" icon={NavIcons.gear}>
               Gear
             </NavLink>
-            <NavLink href="/contractors" icon={NavIcons.contractors}>
-              Contractors
+            <NavLink href="/reviews" icon={NavIcons.reviews}>
+              <Counted count={reviewsDue}>Reviews</Counted>
             </NavLink>
             <NavLink href="/purchasing" icon={NavIcons.purchasing}>
-              Purchasing
+              Budgets
             </NavLink>
+            <Sep />
             <NavLink href="/snippets" icon={NavIcons.snippets}>
               Snippets
             </NavLink>
@@ -108,17 +115,20 @@ async function NavContent() {
           </>
         )}
       </nav>
-      <div>
+      <nav aria-label="SOPs" className="grid gap-px">
         <div className="mb-1 flex items-center justify-between px-2.5 text-xs font-[510] text-muted">
-          Folders
+          SOPs
           {atLeast(actor, "admin") && (
             <Link href="/admin/folders" className="text-faint hover:text-fg-2">
               Manage
             </Link>
           )}
         </div>
+        <NavLink href="/sops" icon={NavIcons.library} exact>
+          All SOPs
+        </NavLink>
         <FolderTree folders={folders.map((f) => ({ id: f.id, name: f.name, depth: f.depth, count: counts.get(f.id) ?? 0 }))} />
-      </div>
+      </nav>
       <div className="mt-auto border-t border-line pt-3">
         <UserMenu user={actor.userId ? { name: actor.name, role: actor.role } : null} />
       </div>
@@ -145,6 +155,11 @@ async function Tabs() {
 async function Palette() {
   const actor = await getActor();
   return <CommandPalette canCreate={atLeast(actor, "editor")} signedIn={Boolean(actor.userId)} />;
+}
+
+/** A thin rule between groups of links. */
+function Sep() {
+  return <div role="separator" className="mx-2.5 my-1.5 border-t border-line" />;
 }
 
 function Counted({ count, children }: { count: number; children: ReactNode }) {

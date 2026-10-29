@@ -12,12 +12,12 @@ import { Stat } from "@/components/work/overview";
 import { PurchaseOrders } from "@/components/work/purchasing";
 import { formatMoney } from "@/lib/format";
 
-export const metadata: Metadata = { title: "Purchasing" };
+export const metadata: Metadata = { title: "Budgets" };
 
 export default function PurchasingPage() {
   return (
     <Page wide>
-      <PageHeader title="Purchasing" subtitle="Every project budget, purchase order and delivery in one place." />
+      <PageHeader title="Budgets" subtitle="Every project budget, purchase order and delivery in one place." />
       <Suspense fallback={<div className="h-96" />}>
         <Content />
       </Suspense>

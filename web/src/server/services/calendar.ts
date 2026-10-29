@@ -5,6 +5,7 @@ import { contractors, projects, siteAccess, tasks, workspaces } from "@/db/schem
 import { buildIcs, type CalendarEvent } from "@/lib/ics";
 import { PRIORITY_LABEL, TASK_STATUS_LABEL, type Priority, type TaskStatus } from "@/lib/work";
 import { forbidden } from "@/server/errors";
+import { taskLink } from "./tasks";
 import { atLeast, type Actor } from "@/server/permissions";
 
 /**
@@ -48,7 +49,7 @@ export async function calendarFeed(db: Executor, token: string, origin: string):
   const open = await db
     .select({ t: tasks, project: projects.name })
     .from(tasks)
-    .innerJoin(projects, eq(projects.id, tasks.projectId))
+    .leftJoin(projects, eq(projects.id, tasks.projectId))
     .where(and(eq(tasks.workspaceId, ws.id), ne(tasks.status, "done"), sql`${tasks.due} is not null`));
   for (const { t, project } of open)
     events.push({
@@ -56,8 +57,8 @@ export async function calendarFeed(db: Executor, token: string, origin: string):
       start: t.due!,
       end: t.due!,
       summary: `Due: ${t.title}`,
-      description: `${project} · ${PRIORITY_LABEL[t.priority as Priority] ?? t.priority} · ${TASK_STATUS_LABEL[t.status as TaskStatus] ?? t.status}`,
-      url: `${base}/projects/${t.projectId}/tasks?task=${t.id}`,
+      description: `${project ?? "General task"} · ${PRIORITY_LABEL[t.priority as Priority] ?? t.priority} · ${TASK_STATUS_LABEL[t.status as TaskStatus] ?? t.status}`,
+      url: base + taskLink(t),
     });
   for (const p of await db.select().from(projects).where(and(eq(projects.workspaceId, ws.id), sql`${projects.start} is not null`)))
     events.push({ uid: `project-${p.id}`, start: p.start!, end: p.end ?? p.start!, summary: `Project: ${p.name}`, description: p.summary, url: `${base}/projects/${p.id}` });
