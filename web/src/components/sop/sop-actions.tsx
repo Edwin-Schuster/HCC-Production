@@ -19,6 +19,8 @@ type Props = {
   versionQuery: string;
   canEdit: boolean;
   canManage: boolean;
+  /** Drafts: the owner or an admin. Published SOPs: admins only. */
+  canDelete: boolean;
   retired: boolean;
   published: boolean;
   isDraftView: boolean;
@@ -32,6 +34,7 @@ export function SopActions(p: Props) {
   const [reviewing, setReviewing] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [confirm, setConfirm] = useState<null | "retire" | "delete">(null);
+  const [typed, setTyped] = useState("");
   const [pending, start] = useTransition();
   const pdf = (w?: string) => `/api/sops/${p.sopId}/pdf?${new URLSearchParams({ ...(p.versionQuery ? Object.fromEntries(new URLSearchParams(p.versionQuery)) : {}), ...(w ? { watermark: w } : {}) })}`;
 
@@ -117,8 +120,14 @@ export function SopActions(p: Props) {
                     <Archive /> Retire…
                   </MenuItem>
                 )}
-                {!p.published && (
-                  <MenuItem danger onSelect={() => setConfirm("delete")}>
+                {p.canDelete && (
+                  <MenuItem
+                    danger
+                    onSelect={() => {
+                      setTyped("");
+                      setConfirm("delete");
+                    }}
+                  >
                     <Trash2 /> Delete…
                   </MenuItem>
                 )}
@@ -196,17 +205,24 @@ export function SopActions(p: Props) {
       <Dialog open={confirm !== null} onOpenChange={(o) => !o && setConfirm(null)}>
         <DialogContent title={confirm === "delete" ? "Delete this SOP?" : "Retire this SOP?"}>
           <p className="text-[14px] text-fg-2">
-            {confirm === "delete"
-              ? "It has never been published, so nothing is lost from history. This can't be undone."
-              : "Readers will no longer see it and it can't be edited. Its version history is kept, and you can restore it later."}
+            {confirm !== "delete"
+              ? "Readers will no longer see it and it can't be edited. Its version history is kept, and you can restore it later."
+              : p.published
+                ? "This permanently removes it with every version, comment, feedback, run, training record and share link. It can't be undone. To only hide it, retire it instead."
+                : "It has never been published, so nothing is lost from history. This can't be undone."}
           </p>
+          {confirm === "delete" && p.published && (
+            <Field label={`Type “${p.title}” to confirm`} htmlFor="confirm-delete" className="mt-4">
+              <Input id="confirm-delete" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" autoFocus />
+            </Field>
+          )}
           <div className="mt-5 flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setConfirm(null)}>
               Cancel
             </Button>
             <Button
               variant="danger"
-              disabled={pending}
+              disabled={pending || (confirm === "delete" && p.published && typed.trim() !== p.title.trim())}
               onClick={() =>
                 start(async () => {
                   const res = confirm === "delete" ? await deleteSopAction(p.sopId) : await setRetiredAction(p.sopId, true);
@@ -216,7 +232,7 @@ export function SopActions(p: Props) {
                 })
               }
             >
-              {confirm === "delete" ? "Delete" : "Retire"}
+              {confirm === "delete" ? (p.published ? "Delete forever" : "Delete") : "Retire"}
             </Button>
           </div>
         </DialogContent>

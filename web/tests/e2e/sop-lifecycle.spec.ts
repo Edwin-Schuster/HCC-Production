@@ -19,3 +19,17 @@ test("retire an SOP, find it under the Retired filter, and restore it", async ({
   await expect(page.getByText("This SOP is retired.")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Edit", exact: true })).toBeVisible();
 });
+
+test("an admin can delete a published SOP after typing its title", async ({ page }) => {
+  await signIn(page);
+  await openSop(page, "Firmware Updates & Config Backups");
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Delete…" }).click();
+  const dialog = page.getByRole("dialog");
+  const button = dialog.getByRole("button", { name: "Delete forever" });
+  await expect(button).toBeDisabled();
+  await dialog.getByLabel(/Type .* to confirm/).fill("Firmware Updates & Config Backups");
+  await button.click();
+  await expect(page).toHaveURL(/\/sops$/);
+  await expect(page.getByRole("link", { name: /Firmware Updates & Config Backups/ })).toHaveCount(0);
+});

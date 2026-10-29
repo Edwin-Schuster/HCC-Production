@@ -4,6 +4,7 @@ import { blocks, sopVersions, auditEvents } from "@/db/schema";
 import { isImmutableVersionError } from "@/db";
 import { callout, step } from "@/blocks/build";
 import { createSop, getEditorState, getOrCreateDraft, getSopDocument, listVersions, publishDraft, saveDraft, discardDraft, deleteSop, updateSopMeta } from "@/server/services/sops";
+import { startRun } from "@/server/services/runs";
 import { testDb } from "./helpers";
 
 let t: Awaited<ReturnType<typeof testDb>>;
@@ -98,8 +99,9 @@ describe("publishing", () => {
       expect(err, "expected the trigger to reject the change").not.toBeNull();
       expect(isImmutableVersionError(err)).toBe(true);
     }
-    // Deleting a published SOP is refused by the service (retire instead).
-    await expect(deleteSop(t.db, admin, sop.id)).rejects.toThrow(/retire/i);
+    // Deleting a published SOP is for admins only.
+    const editor = await t.actorFor("editor", "pub-del-ed");
+    await expect(deleteSop(t.db, editor, sop.id)).rejects.toThrow(/Only/);
   });
 
   it("detects stale autosaves and can discard a draft", async () => {
@@ -124,5 +126,32 @@ describe("publishing", () => {
     expect(doc.sop.tags).toEqual(["audio", "sunday"]);
     const [ev] = (await t.db.select().from(auditEvents).where(eq(auditEvents.targetId, sop.id))).filter((e) => e.action === "sop.metadata_updated");
     expect(ev.metadata).toMatchObject({ published: true, changes: { reviewIntervalDays: 30 } });
+  });
+});
+
+describe("deleting a published SOP", () => {
+  it("lets an admin remove it with its history, and leaves other SOPs immutable", async () => {
+    const publish = async (title: string) => {
+      const { admin, sop } = await newSop(title);
+      const draft = await getOrCreateDraft(t.db, admin, sop.id);
+      await saveDraft(t.db, admin, sop.id, { title, blocks: [step("Do the thing")], baseUpdatedAt: draft.draft.updatedAt.toISOString() });
+      await publishDraft(t.db, admin, sop.id, { changeSummary: "First version" });
+      return { admin, sop };
+    };
+    const { admin, sop } = await publish("Doomed");
+    const { sop: keep } = await publish("Keeper");
+    await startRun(t.db, admin, sop.id, { label: "Sunday" });
+    await getOrCreateDraft(t.db, admin, sop.id); // a draft on top of the published version
+
+    await deleteSop(t.db, admin, sop.id);
+    await expect(getSopDocument(t.db, admin, sop.id)).rejects.toThrow();
+    expect(await t.db.select().from(sopVersions).where(eq(sopVersions.sopId, sop.id))).toHaveLength(0);
+
+    // The purge flag was transaction-local: other published versions still can't be touched.
+    const [kv] = await t.db.select().from(sopVersions).where(eq(sopVersions.sopId, keep.id));
+    const err = await t.db.delete(sopVersions).where(eq(sopVersions.id, kv.id)).then(() => null, (e) => e);
+    expect(isImmutableVersionError(err)).toBe(true);
+    const audits = await t.db.select().from(auditEvents).where(eq(auditEvents.targetId, sop.id));
+    expect(audits.map((a) => a.action)).toContain("sop.deleted");
   });
 });

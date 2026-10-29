@@ -22,6 +22,7 @@ import { Empty } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { MetaHeader } from "@/components/sop/meta-header";
 import { SopActions } from "@/components/sop/sop-actions";
+import { atLeast } from "@/server/permissions";
 import { Toc } from "@/components/sop/toc";
 import { LocalDate } from "@/components/local-date";
 
@@ -191,6 +192,7 @@ async function Reader({ params, searchParams }: { params: PageProps<"/sops/[id]"
                   versionQuery={versionQuery}
                   canEdit={doc.canEdit}
                   canManage={doc.canManage}
+                  canDelete={doc.canManage && (!sop.currentVersionId || atLeast(actor, "admin"))}
                   retired={sop.status === "retired"}
                   published={Boolean(sop.currentVersionId)}
                   isDraftView={version.isDraft}

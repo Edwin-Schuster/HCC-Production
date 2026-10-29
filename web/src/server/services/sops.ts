@@ -564,9 +564,11 @@ export async function deleteSop(db: Executor, actor: Actor, sopId: string) {
   return db.transaction(async (tx) => {
     const { sop } = await loadSop(tx, actor, sopId, { forUpdate: true });
     if (!canManageSop(actor, sop)) throw forbidden("Only the owner or an admin can delete an SOP.");
-    if (sop.currentVersionId) throw invalid("Published SOPs can't be deleted, because their history must be kept. Retire it instead.");
+    if (sop.currentVersionId && !atLeast(actor, "admin")) throw forbidden("Only an admin can delete a published SOP. You can retire it instead.");
+    // Published versions are immutable; this transaction-local flag lets the triggers allow this one SOP's rows to go.
+    if (sop.currentVersionId) await tx.execute(sql`select set_config('hcc.purge_sop', ${sop.id}, true)`);
     await tx.delete(sops).where(eq(sops.id, sop.id));
-    await audit(tx, actor, "sop.deleted", { type: "sop", id: sop.id }, { documentCode: sop.documentCode, title: sop.title });
+    await audit(tx, actor, "sop.deleted", { type: "sop", id: sop.id }, { documentCode: sop.documentCode, title: sop.title, wasPublished: Boolean(sop.currentVersionId) });
   });
 }
 
