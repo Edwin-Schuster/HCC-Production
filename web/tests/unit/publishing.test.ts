@@ -27,6 +27,30 @@ describe("document codes", () => {
     const c = await createSop(t.db, admin, { title: "C", folderId: aud.id });
     expect([a.documentCode, b.documentCode, c.documentCode]).toEqual(["SOP-AUD-001", "SOP-AUD-002", "SOP-AUD-003"]);
   });
+
+  it("can be edited by the owner or an admin, must stay unique, and can follow a move", async () => {
+    const admin = await t.actorFor("admin");
+    const editor = await t.actorFor("editor", "code-ed");
+    const svc = await t.folder("Service", "SVC");
+    const vid = await t.folder("Video", "VID");
+    const one = await createSop(t.db, admin, { title: "One", folderId: svc.id });
+    const two = await createSop(t.db, admin, { title: "Two", folderId: svc.id });
+    const code = async (id: string) => (await getSopDocument(t.db, admin, id)).sop.documentCode;
+
+    await updateSopMeta(t.db, admin, two.id, { documentCode: " sop-svc-010 " });
+    expect(await code(two.id)).toBe("SOP-SVC-010");
+    await expect(updateSopMeta(t.db, admin, one.id, { documentCode: "SOP-SVC-010" })).rejects.toThrow(/already used by “Two”/);
+    await expect(updateSopMeta(t.db, admin, one.id, { documentCode: "bad code!" })).rejects.toThrow();
+    await expect(updateSopMeta(t.db, editor, one.id, { documentCode: "SOP-SVC-099" })).rejects.toThrow(/owner or an admin/);
+
+    // Moving to Video with a new code takes the next free Video number.
+    await updateSopMeta(t.db, admin, one.id, { folderId: vid.id, newCodeForFolder: true });
+    expect(await code(one.id)).toBe("SOP-VID-001");
+    // A hand-picked code is skipped when the next code is handed out.
+    await updateSopMeta(t.db, admin, two.id, { documentCode: "SOP-VID-002" });
+    const three = await createSop(t.db, admin, { title: "Three", folderId: vid.id });
+    expect(three.documentCode).toBe("SOP-VID-003");
+  });
 });
 
 describe("editing without a draft", () => {

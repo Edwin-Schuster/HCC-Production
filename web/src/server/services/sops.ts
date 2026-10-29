@@ -70,6 +70,17 @@ export const UpdateMetaInput = z.object({
   tags: Tags.optional(),
   reviewIntervalDays: z.number().int().min(7).max(3_650).optional(),
   urlPatterns: z.array(z.string().trim().min(3).max(300)).max(20).optional(),
+  /** Owner or admin only. Letters, digits and dashes, e.g. SOP-SVC-005. */
+  documentCode: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9]+(-[A-Z0-9]+)*$/, "Use letters, numbers and dashes, like SOP-SVC-005")
+    .min(3, "Document codes need at least 3 characters")
+    .max(40)
+    .optional(),
+  /** Give it the next free code of its (new) folder instead, e.g. after moving it. */
+  newCodeForFolder: z.boolean().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -131,12 +142,22 @@ async function writeBlocks(db: Executor, versionId: string, tree: BlockNode[]) {
 const keywords = (code: string, tags: string[]) => [code, ...tags].join(" ");
 
 async function nextDocumentCode(db: Executor, workspaceId: string, prefix: string): Promise<string> {
-  const [row] = await db
-    .insert(docCodeCounters)
-    .values({ workspaceId, prefix, nextValue: 2 })
-    .onConflictDoUpdate({ target: [docCodeCounters.workspaceId, docCodeCounters.prefix], set: { nextValue: sql`${docCodeCounters.nextValue} + 1` } })
-    .returning({ nextValue: docCodeCounters.nextValue });
-  return `SOP-${prefix}-${String(row.nextValue - 1).padStart(3, "0")}`;
+  // Codes can be edited by hand, so skip any number someone has already taken.
+  for (;;) {
+    const [row] = await db
+      .insert(docCodeCounters)
+      .values({ workspaceId, prefix, nextValue: 2 })
+      .onConflictDoUpdate({ target: [docCodeCounters.workspaceId, docCodeCounters.prefix], set: { nextValue: sql`${docCodeCounters.nextValue} + 1` } })
+      .returning({ nextValue: docCodeCounters.nextValue });
+    const code = `SOP-${prefix}-${String(row.nextValue - 1).padStart(3, "0")}`;
+    const [taken] = await db.select({ id: sops.id }).from(sops).where(and(eq(sops.workspaceId, workspaceId), eq(sops.documentCode, code))).limit(1);
+    if (!taken) return code;
+  }
+}
+
+async function requireFreeCode(db: Executor, workspaceId: string, code: string, sopId: string) {
+  const [taken] = await db.select({ id: sops.id, title: sops.title }).from(sops).where(and(eq(sops.workspaceId, workspaceId), eq(sops.documentCode, code))).limit(1);
+  if (taken && taken.id !== sopId) throw invalid(`${code} is already used by “${taken.title}”.`);
 }
 
 async function requireMember(db: Executor, actor: Actor, userId: string) {
@@ -531,19 +552,27 @@ export async function updateSopMeta(db: Executor, actor: Actor, sopId: string, i
       await requireMember(tx, actor, data.ownerId);
     }
     if (data.folderId && data.folderId !== sop.folderId) await requireFolder(tx, actor, data.folderId);
+    let documentCode = data.documentCode;
+    if (data.newCodeForFolder || (documentCode && documentCode !== sop.documentCode)) {
+      if (!canManageSop(actor, sop)) throw forbidden("Only the owner or an admin can change the document code.");
+      if (data.newCodeForFolder) {
+        const [folder] = await tx.select({ prefix: folders.codePrefix }).from(folders).where(eq(folders.id, data.folderId ?? sop.folderId)).limit(1);
+        documentCode = await nextDocumentCode(tx, actor.workspaceId, folder.prefix);
+      } else await requireFreeCode(tx, actor.workspaceId, documentCode!, sop.id);
+    }
     const tags = data.tags ?? sop.tags;
     const interval = data.reviewIntervalDays ?? sop.reviewIntervalDays;
     const current = sop.currentVersionId ? (await tx.select().from(sopVersions).where(eq(sopVersions.id, sop.currentVersionId)).limit(1))[0] : undefined;
     const nextReviewAt = current?.publishedAt && data.reviewIntervalDays ? new Date(current.publishedAt.getTime() + interval * 864e5) : sop.nextReviewAt;
     const changes = Object.fromEntries(
-      Object.entries({ ownerId: data.ownerId, folderId: data.folderId, tags: data.tags, reviewIntervalDays: data.reviewIntervalDays, urlPatterns: data.urlPatterns }).filter(
+      Object.entries({ ownerId: data.ownerId, folderId: data.folderId, tags: data.tags, reviewIntervalDays: data.reviewIntervalDays, urlPatterns: data.urlPatterns, documentCode }).filter(
         ([k, v]) => v !== undefined && JSON.stringify(v) !== JSON.stringify(sop[k as keyof SopRow]),
       ),
     );
     if (!Object.keys(changes).length) return;
     await tx
       .update(sops)
-      .set({ ...changes, searchKeywords: keywords(sop.documentCode, tags), nextReviewAt, updatedAt: new Date() })
+      .set({ ...changes, searchKeywords: keywords(documentCode ?? sop.documentCode, tags), nextReviewAt, updatedAt: new Date() })
       .where(eq(sops.id, sop.id));
     await audit(tx, actor, "sop.metadata_updated", { type: "sop", id: sop.id }, { changes, published: Boolean(sop.currentVersionId) });
   });

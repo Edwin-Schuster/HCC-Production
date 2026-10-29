@@ -24,7 +24,7 @@ type Props = {
   retired: boolean;
   published: boolean;
   isDraftView: boolean;
-  meta: { ownerId: string; folderId: string; tags: string[]; reviewIntervalDays: number; urlPatterns: string[] };
+  meta: { documentCode: string; ownerId: string; folderId: string; tags: string[]; reviewIntervalDays: number; urlPatterns: string[] };
   members: { id: string; name: string }[];
   folders: { id: string; label: string }[];
 };
@@ -151,6 +151,7 @@ export function SopActions(p: Props) {
               start(async () => {
                 const res = await updateMetaAction(p.sopId, {
                   ...(p.canManage ? { ownerId: String(fd.get("owner")) } : {}),
+                  ...(p.canManage ? (fd.get("newCode") ? { newCodeForFolder: true } : { documentCode: String(fd.get("code") ?? "") }) : {}),
                   folderId: String(fd.get("folder")),
                   tags: String(fd.get("tags") ?? "").split(",").map((t) => t.trim()).filter(Boolean),
                   reviewIntervalDays: Number(fd.get("interval")),
@@ -172,7 +173,10 @@ export function SopActions(p: Props) {
                 ))}
               </Select>
             </Field>
-            <Field label="Folder" htmlFor="folder" hint="The document code stays the same if you move it.">
+            <Field label="Document code" htmlFor="code" hint={p.canManage ? "Letters, numbers and dashes. Each SOP needs its own." : "Only the owner or an admin can change this."}>
+              <Input id="code" name="code" defaultValue={p.meta.documentCode} disabled={!p.canManage} className="font-mono uppercase" maxLength={40} required />
+            </Field>
+            <Field label="Folder" htmlFor="folder" hint="Moving it keeps its document code unless you tick the box below.">
               <Select id="folder" name="folder" defaultValue={p.meta.folderId}>
                 {p.folders.map((f) => (
                   <option key={f.id} value={f.id}>
@@ -181,6 +185,12 @@ export function SopActions(p: Props) {
                 ))}
               </Select>
             </Field>
+            {p.canManage && (
+              <label className="-mt-2 flex items-center gap-2 text-[13px] text-fg-2">
+                <input type="checkbox" name="newCode" className="size-4 accent-[var(--cta)]" />
+                Give it the next code in the chosen folder
+              </label>
+            )}
             <Field label="Tags" htmlFor="tags" hint="Comma separated">
               <Input id="tags" name="tags" defaultValue={p.meta.tags.join(", ")} />
             </Field>
