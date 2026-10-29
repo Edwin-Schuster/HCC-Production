@@ -74,7 +74,8 @@ export function SopActions(p: Props) {
           <Workflow />
         </Link>
       </Button>
-      {p.canEdit && (
+      {/* A retired SOP can't be edited, but its owner or an admin still needs this menu to restore it. */}
+      {(p.canEdit || p.canManage) && (
         <Menu>
           <MenuTrigger asChild>
             <Button size="icon-sm" variant="ghost" aria-label="More actions">
@@ -82,9 +83,11 @@ export function SopActions(p: Props) {
             </Button>
           </MenuTrigger>
           <MenuContent align="end">
-            <MenuItem onSelect={() => setDetails(true)}>
-              <Settings2 /> Owner, folder, tags & review…
-            </MenuItem>
+            {p.canEdit && (
+              <MenuItem onSelect={() => setDetails(true)}>
+                <Settings2 /> Owner, folder, tags & review…
+              </MenuItem>
+            )}
             {p.published && !p.retired && (
               <MenuItem asChild>
                 <Link href={`/sops/${p.sopId}/training`}>
@@ -104,7 +107,7 @@ export function SopActions(p: Props) {
             )}
             {p.canManage && (
               <>
-                <MenuSeparator />
+                {p.canEdit && <MenuSeparator />}
                 {p.retired ? (
                   <MenuItem onSelect={() => start(async () => void toast((await setRetiredAction(p.sopId, false)).ok ? "Restored" : "Couldn't restore"))}>
                     <ArchiveRestore /> Restore

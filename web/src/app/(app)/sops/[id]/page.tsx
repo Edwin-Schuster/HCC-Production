@@ -124,7 +124,7 @@ async function Reader({ params, searchParams }: { params: PageProps<"/sops/[id]"
 
           {sop.status === "retired" && (
             <Banner tone="bad" icon={<AlertTriangle />}>
-              This SOP is retired. Readers can't see it, and it can't be edited until it's restored.
+              This SOP is retired. Readers can't see it, and it can't be edited until it's restored{doc.canManage ? " (⋯ menu → Restore)" : ""}.
             </Banner>
           )}
           {version.isDraft && (
