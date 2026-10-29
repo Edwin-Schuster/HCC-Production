@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { fromBlockNote, imageExtras, keyMap, toBlockNote, type BNBlock } from "./convert";
 import { AnnotateItem, CollapseItem, DuplicateItem, getSlashItems, ResizeButton, ResizeItem, RestartItem } from "./menu-items";
 import { AnnotateHost } from "./annotate-host";
+import { SelectionGuard } from "./selection-guard";
 import { ImageEditHost } from "./image-edit-host";
 import { sopSchema, type SopEditor as Editor } from "./schema";
 import { storeFor } from "./store";
@@ -50,7 +51,7 @@ export default function SnippetEditor({ snippet, roles, canDelete }: SnippetEdit
   }, []);
 
   const editor = useCreateBlockNote(
-    { schema: sopSchema, initialContent: initial.length ? (toBlockNote(initial) as never) : undefined, uploadFile, tables: { headers: true }, animations: false },
+    { extensions: [SelectionGuard], schema: sopSchema, initialContent: initial.length ? (toBlockNote(initial) as never) : undefined, uploadFile, tables: { headers: true }, animations: false },
     [],
   ) as unknown as Editor;
 

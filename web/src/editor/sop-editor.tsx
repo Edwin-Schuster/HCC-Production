@@ -26,6 +26,7 @@ import { fromBlockNote, imageExtras, keyMap, toBlockNote, type BNBlock } from ".
 import { AnnotateItem, CollapseItem, DuplicateItem, getSlashItems, ResizeButton, ResizeItem, RestartItem } from "./menu-items";
 import { AnnotateHost } from "./annotate-host";
 import { ImageEditHost } from "./image-edit-host";
+import { SelectionGuard } from "./selection-guard";
 import { sopSchema, type SopEditor as Editor } from "./schema";
 import { catalogResolver, storeFor, type SnippetCatalogItem } from "./store";
 
@@ -96,6 +97,7 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
 
   const editor = useCreateBlockNote(
     {
+      extensions: [SelectionGuard],
       schema: sopSchema,
       initialContent: initial.blocks.length ? (toBlockNote(initial.blocks) as never) : undefined,
       uploadFile,
