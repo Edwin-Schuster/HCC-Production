@@ -106,7 +106,8 @@ function paragraph(rt: RichText): BlockNode | null {
 /** Google Docs' HTML export encodes list nesting as classes like "lst-kix_abc-2" rather than nested lists. */
 const gdocsLevel = (el: HTMLElement) => Number((el.getAttribute("class") ?? "").match(/lst-kix_[\w]+-(\d+)/)?.[1] ?? NaN);
 
-export function htmlToBlocks(html: string): ImportResult {
+/** restartLists: a numbered list that starts at 1 again (Markdown "1.") starts the step numbering again. */
+export function htmlToBlocks(html: string, opts: { restartLists?: boolean } = {}): ImportResult {
   const root = parse(html, { comment: false, blockTextElements: { script: false, style: false, pre: true } });
   const body = root.querySelector("body") ?? root;
   const warnings = new Set<string>();
@@ -210,7 +211,14 @@ export function htmlToBlocks(html: string): ImportResult {
           i = j;
         }
         blocks.push(...gdocsList(group));
-      } else blocks.push(...listItems(c, t === "ol"));
+      } else {
+        const items = listItems(c, t === "ol");
+        const first = items[0];
+        if (opts.restartLists && t === "ol" && first?.type === "step" && blocks.some((b) => b.type === "step") && (c.getAttribute("start") ?? "1") === "1") {
+          first.content = { ...first.content, restart: true };
+        }
+        blocks.push(...items);
+      }
     } else if (t === "table") {
       const rows = c.querySelectorAll("tr").map((tr) => tr.querySelectorAll("th,td").map((cell) => tidy(inline(cell))));
       if (rows.length) blocks.push(node("table", { headerRow: Boolean(c.querySelector("th")) || rows.length > 1, rows: rows.slice(0, 500).map((r) => r.slice(0, 30)) }));

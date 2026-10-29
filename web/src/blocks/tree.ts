@@ -12,13 +12,15 @@ export function* walk(nodes: BlockNode[], depth = 0, parent: BlockNode | null = 
 /**
  * Step numbers: top-level steps count 1, 2, 3 across the whole document; sub-steps of step 3 are 3.1, 3.2,
  * and their sub-steps 3.2.1. Non-step blocks never take a number. A step nested under a non-step block
- * (for example inside a callout) continues the numbering of the enclosing scope, so numbers never repeat.
+ * (for example inside a callout) continues the numbering of the enclosing scope. A top-level step marked
+ * `restart` starts again at 1, so one SOP can hold several 1, 2, 3 lists.
  */
 export function numberSteps(nodes: BlockNode[]): Map<string, string> {
   const out = new Map<string, string>();
   const visit = (list: BlockNode[], prefix: string, counter: { n: number }) => {
     for (const node of list) {
       if (node.type === "step") {
+        if (!prefix && node.content.restart) counter.n = 0;
         counter.n += 1;
         const label = prefix ? `${prefix}.${counter.n}` : String(counter.n);
         out.set(node.id, label);

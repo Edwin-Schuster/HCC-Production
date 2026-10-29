@@ -46,6 +46,7 @@ export function fieldsOf(n: BlockNode): Record<string, [label: string, value: st
         roleId: ["Role", n.content.roleId ?? ""],
         estDuration: ["Minutes", n.content.estDuration ? String(n.content.estDuration) : ""],
         branches: ["Branches", n.content.branches.map((b) => `If ${b.condition} → ${b.target}`).join("\n")],
+        restart: ["Numbering", n.content.restart ? "Starts again at 1" : ""],
       };
     case "heading":
     case "text":

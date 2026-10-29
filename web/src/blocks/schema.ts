@@ -59,6 +59,8 @@ export const ContentSchemas = {
     warning: short(5_000).default(""),
     collapsed: z.boolean().default(false),
     branches: z.array(BranchRule).max(10).default([]),
+    /** Top-level steps only: numbering starts again at 1 here (for a second 1, 2, 3 list in the same SOP). */
+    restart: z.boolean().optional(),
   }),
   checklist: z.object({ text: RichText, checked: z.boolean().default(false) }),
   callout: z.object({ variant: z.enum(CALLOUT_VARIANTS), text: RichText }),

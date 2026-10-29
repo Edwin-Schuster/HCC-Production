@@ -67,3 +67,12 @@ describe("import", () => {
     await expect(parseImport("x.pdf", new Uint8Array([1, 2, 3]))).rejects.toThrow(/Upload a Word/);
   });
 });
+
+describe("Markdown lists that start at 1 again", () => {
+  it("restart the step numbering; a continued list (4.) does not", async () => {
+    const md = "# Two lists\n\n## Setup\n\n1. a\n2. b\n\n## Teardown\n\n1. c\n2. d\n\nNote: between\n\n3. e\n";
+    const r = await parseImport("two.md", new TextEncoder().encode(md));
+    const n = numberSteps(r.blocks);
+    expect(r.blocks.filter((b) => b.type === "step").map((b) => n.get(b.id))).toEqual(["1", "2", "1", "2", "3"]);
+  });
+});

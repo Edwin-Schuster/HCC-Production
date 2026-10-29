@@ -41,7 +41,7 @@ export async function parseImport(name: string, bytes: Uint8Array): Promise<Impo
     throw invalid("Upload a Word (.docx), Google Docs (download as .docx or web page), HTML or Markdown file.");
   }
 
-  const res = htmlToBlocks(html);
+  const res = htmlToBlocks(html, { restartLists: ext === "md" || ext === "markdown" || ext === "txt" });
   return { ...res, title: res.title || fallbackTitle || "Imported SOP" };
 }
 

@@ -24,6 +24,8 @@ export const StepBlock = createReactBlockSpec(
       collapsed: { default: false },
       /** JSON array of { condition, target } (target is a step's key). */
       branches: { default: "[]" },
+      /** Numbering starts again at 1 at this step (top level only). */
+      restart: { default: false },
     },
     content: "inline",
   },

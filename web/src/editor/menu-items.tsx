@@ -3,7 +3,7 @@
 import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from "@blocknote/core";
 import { SideMenuExtension } from "@blocknote/core/extensions";
 import { getDefaultReactSlashMenuItems, useBlockNoteEditor, useComponentsContext, useEditorState, useExtensionState, type DefaultReactSuggestionItem } from "@blocknote/react";
-import { AlertTriangle, CornerDownRight, Crop, Film, Globe, Info, ListOrdered, OctagonAlert, Puzzle } from "lucide-react";
+import { AlertTriangle, CornerDownRight, Crop, Film, Globe, Info, ListOrdered, ListRestart, OctagonAlert, Puzzle } from "lucide-react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import type { SopEditor } from "./schema";
@@ -26,6 +26,14 @@ export function slashItems(editor: SopEditor, opts: { snippets?: boolean } = {})
         editor.setTextCursorPosition(b, "end");
         if (editor.canNestBlock()) editor.nestBlock();
       },
+    },
+    {
+      title: "New step list",
+      subtext: "A step that starts the numbering again at 1",
+      aliases: ["restart", "new list", "start at 1", "renumber"],
+      group: "SOP",
+      icon: <ListRestart size={18} />,
+      onItemClick: insert({ type: "step", props: { restart: true } }),
     },
     { title: "Note callout", subtext: "Helpful information", aliases: ["note", "info", "callout", "tip"], group: "SOP", icon: <Info size={18} />, onItemClick: insert({ type: "callout", props: { variant: "info" } }) },
     { title: "Warning callout", subtext: "Something that could go wrong", aliases: ["warning", "caution", "callout"], group: "SOP", icon: <AlertTriangle size={18} />, onItemClick: insert({ type: "callout", props: { variant: "warning" } }) },
@@ -124,6 +132,21 @@ export function ResizeButton() {
   if (!id) return null;
   return (
     <Components.FormattingToolbar.Button className="bn-button" label="Resize & crop" mainTooltip="Resize & crop" icon={<Crop size={18} />} onClick={() => storeFor(editor).set({ resizing: id })} />
+  );
+}
+
+/** Top-level steps only: start the numbering again at 1 here, or carry on from the step before. */
+export function RestartItem() {
+  const Components = useComponentsContext()!;
+  const { editor, block } = useSideMenuBlock();
+  const current = block ? editor.getBlock(block.id) : undefined;
+  if (!current || current.type !== "step") return null;
+  for (let p = editor.getParentBlock(current); p; p = editor.getParentBlock(p)) if (p.type === "step") return null;
+  const restart = Boolean((current.props as { restart?: boolean }).restart);
+  return (
+    <Components.Generic.Menu.Item className="bn-menu-item" onClick={() => editor.updateBlock(current, { props: { restart: !restart } as never })}>
+      {restart ? "Continue numbering" : "Start again at 1"}
+    </Components.Generic.Menu.Item>
   );
 }
 

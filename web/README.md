@@ -6,7 +6,7 @@ The production team app for Hope Christian Church: SOPs, the roster, projects, c
 
 ## What it does
 
-- **Write:** a block editor with numbered steps (3.2.1), roles, times, expected results, warnings and branch rules ("if X, go to step N"); callouts, checklists, code, tables, images, video and embeds; shared **snippets**; five templates; autosave with local recovery.
+- **Write:** a block editor with numbered steps (3.2.1, and more than one 1, 2, 3 list per SOP with "Start again at 1"), roles, times, expected results, warnings and branch rules ("if X, go to step N"); callouts, checklists, code, tables, images, video and embeds; shared **snippets**; five templates; images you can resize and crop; autosave with local recovery.
 - **Import** from Word, Google Docs, HTML or Markdown with a preview. **Annotate screenshots** with arrows, boxes, numbered markers and text; passwords and account numbers are found by OCR and blurred automatically.
 - **Read:** a clean reading view with a table of contents, PDF export with page numbers and watermarks, a generated **flowchart**, full-text search that finds the matching step, and workspace **branding** (logo, colour, font, header and footer).
 - **Govern:** immutable versions with change summaries, **visual diffs** between versions, rollback, optional **approvals** per folder, review dates with reminders and overdue badges, and an audit log of every change to a published SOP. Retire an SOP to hide it (restore it any time); an admin can also delete one for good, history included, after typing its title.

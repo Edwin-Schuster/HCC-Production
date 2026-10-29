@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { expandSnippets } from "@/blocks/snippets";
 import { numberSteps, plain, walk } from "@/blocks/tree";
 import { fromBlockNote, imageExtras, keyMap, toBlockNote, type BNBlock } from "./convert";
-import { AnnotateItem, CollapseItem, DuplicateItem, getSlashItems, ResizeButton, ResizeItem } from "./menu-items";
+import { AnnotateItem, CollapseItem, DuplicateItem, getSlashItems, ResizeButton, ResizeItem, RestartItem } from "./menu-items";
 import { AnnotateHost } from "./annotate-host";
 import { ImageEditHost } from "./image-edit-host";
 import { sopSchema, type SopEditor as Editor } from "./schema";
@@ -478,6 +478,7 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
                     <DragHandleMenu>
                       <DuplicateItem>Duplicate</DuplicateItem>
                       <CollapseItem />
+                      <RestartItem />
                       <ResizeItem />
                       <AnnotateItem />
                       <RemoveBlockItem>Delete</RemoveBlockItem>

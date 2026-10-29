@@ -181,6 +181,7 @@ export function fromBlockNote(blocks: BNBlock[], keys: Map<string, string> = new
             warning: String(p.warning ?? ""),
             collapsed: Boolean(p.collapsed),
             branches: parseJsonArray(p.branches, BranchRule).slice(0, 10),
+            ...(p.restart ? { restart: true } : {}),
           },
         });
         break;
@@ -246,6 +247,7 @@ export function toBlockNote(nodes: BlockNode[]): BNPartial[] {
             warning: n.content.warning,
             collapsed: n.content.collapsed,
             branches: JSON.stringify(n.content.branches),
+            restart: Boolean(n.content.restart),
           },
           content: inlineToBN(n.content.title),
           children,

@@ -73,3 +73,19 @@ describe("DocumentSchema", () => {
     expect(DocumentSchema.safeParse([node]).success).toBe(false);
   });
 });
+
+describe("restarting the numbering", () => {
+  const restart = (title: string, children: BlockNode[] = []): BlockNode => {
+    const s = step(title, children);
+    return { ...s, content: { ...s.content, restart: true } } as BlockNode;
+  };
+
+  it("starts top-level steps again at 1, keeping sub-steps under their own step", () => {
+    const doc = [heading("Setup"), step("a"), step("b", [step("b1")]), heading("Teardown"), restart("c"), step("d", [step("d1")])];
+    expect(labels(doc)).toEqual(["1 a", "2 b", "2.1 b1", "1 c", "2 d", "2.1 d1"]);
+  });
+
+  it("ignores the flag on sub-steps", () => {
+    expect(labels([step("a", [step("a1"), restart("a2")])])).toEqual(["1 a", "1.1 a1", "1.2 a2"]);
+  });
+});
