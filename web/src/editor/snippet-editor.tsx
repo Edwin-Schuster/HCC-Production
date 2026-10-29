@@ -3,7 +3,7 @@
 import "@blocknote/mantine/style.css";
 import "./editor.css";
 import { BlockNoteView } from "@blocknote/mantine";
-import { DragHandleMenu, RemoveBlockItem, SideMenu, SideMenuController, SuggestionMenuController, useCreateBlockNote } from "@blocknote/react";
+import { DragHandleMenu, FormattingToolbar, FormattingToolbarController, getFormattingToolbarItems, RemoveBlockItem, SideMenu, SideMenuController, SuggestionMenuController, useCreateBlockNote } from "@blocknote/react";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
@@ -14,8 +14,9 @@ import { numberSteps, plain, walk } from "@/blocks/tree";
 import { useTheme } from "@/components/theme";
 import { Button } from "@/components/ui/button";
 import { fromBlockNote, imageExtras, keyMap, toBlockNote, type BNBlock } from "./convert";
-import { AnnotateItem, CollapseItem, DuplicateItem, getSlashItems } from "./menu-items";
+import { AnnotateItem, CollapseItem, DuplicateItem, getSlashItems, ResizeButton, ResizeItem } from "./menu-items";
 import { AnnotateHost } from "./annotate-host";
+import { ImageEditHost } from "./image-edit-host";
 import { sopSchema, type SopEditor as Editor } from "./schema";
 import { storeFor } from "./store";
 
@@ -144,6 +145,7 @@ export default function SnippetEditor({ snippet, roles, canDelete }: SnippetEdit
           theme={theme}
           slashMenu={false}
           sideMenu={false}
+          formattingToolbar={false}
           onChange={() => {
             renumber();
             setDirty(true);
@@ -151,6 +153,7 @@ export default function SnippetEditor({ snippet, roles, canDelete }: SnippetEdit
           className="hcc-editor"
         >
           <SuggestionMenuController triggerCharacter="/" getItems={getSlashItems(editor, { snippets: false })} />
+          <FormattingToolbarController formattingToolbar={() => <FormattingToolbar>{[...getFormattingToolbarItems(), <ResizeButton key="resize" />]}</FormattingToolbar>} />
           <SideMenuController
             sideMenu={(props) => (
               <SideMenu
@@ -159,6 +162,7 @@ export default function SnippetEditor({ snippet, roles, canDelete }: SnippetEdit
                   <DragHandleMenu>
                     <DuplicateItem>Duplicate</DuplicateItem>
                     <CollapseItem />
+                    <ResizeItem />
                     <AnnotateItem />
                     <RemoveBlockItem>Delete</RemoveBlockItem>
                   </DragHandleMenu>
@@ -168,6 +172,7 @@ export default function SnippetEditor({ snippet, roles, canDelete }: SnippetEdit
           />
         </BlockNoteView>
         <AnnotateHost editor={editor} upload={uploadFile} />
+        <ImageEditHost editor={editor} upload={uploadFile} />
       </div>
     </div>
   );

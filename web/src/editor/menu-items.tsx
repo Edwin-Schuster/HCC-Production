@@ -2,8 +2,8 @@
 
 import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from "@blocknote/core";
 import { SideMenuExtension } from "@blocknote/core/extensions";
-import { getDefaultReactSlashMenuItems, useBlockNoteEditor, useComponentsContext, useExtensionState, type DefaultReactSuggestionItem } from "@blocknote/react";
-import { AlertTriangle, CornerDownRight, Film, Globe, Info, ListOrdered, OctagonAlert, Puzzle } from "lucide-react";
+import { getDefaultReactSlashMenuItems, useBlockNoteEditor, useComponentsContext, useEditorState, useExtensionState, type DefaultReactSuggestionItem } from "@blocknote/react";
+import { AlertTriangle, CornerDownRight, Crop, Film, Globe, Info, ListOrdered, OctagonAlert, Puzzle } from "lucide-react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import type { SopEditor } from "./schema";
@@ -92,6 +92,38 @@ export function AnnotateItem() {
     >
       Annotate image
     </Components.Generic.Menu.Item>
+  );
+}
+
+export function ResizeItem() {
+  const Components = useComponentsContext()!;
+  const { editor, block } = useSideMenuBlock();
+  const current = block ? editor.getBlock(block.id) : undefined;
+  if (!current || current.type !== "image" || !(current.props as { url?: string }).url) return null;
+  return (
+    <Components.Generic.Menu.Item className="bn-menu-item" onClick={() => storeFor(editor).set({ resizing: current.id })}>
+      Resize & crop image
+    </Components.Generic.Menu.Item>
+  );
+}
+
+/** "Resize & crop" in the toolbar that appears when an image is selected. */
+export function ResizeButton() {
+  const Components = useComponentsContext()!;
+  const editor = useBlockNoteEditor<never, never, never>() as unknown as SopEditor;
+  const id = useEditorState({
+    editor: editor as never,
+    selector: ({ editor: e }) => {
+      const ed = e as unknown as SopEditor;
+      if (!ed.isEditable) return undefined;
+      const blocks = ed.getSelection()?.blocks ?? [ed.getTextCursorPosition().block];
+      const b = blocks.length === 1 ? blocks[0] : undefined;
+      return b && b.type === "image" && (b.props as { url?: string }).url ? b.id : undefined;
+    },
+  });
+  if (!id) return null;
+  return (
+    <Components.FormattingToolbar.Button className="bn-button" label="Resize & crop" mainTooltip="Resize & crop" icon={<Crop size={18} />} onClick={() => storeFor(editor).set({ resizing: id })} />
   );
 }
 

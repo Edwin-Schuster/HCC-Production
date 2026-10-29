@@ -25,10 +25,12 @@ type State = {
   keyOf: (id: string) => string;
   /** Image block being annotated, if any. */
   annotating: string | null;
+  /** Image block being resized or cropped, if any. */
+  resizing: string | null;
 };
 
 class EditorStore {
-  private state: State = { numbers: new Map(), roles: [], steps: [], snippets: [], images: new Map(), keyOf: (id) => id, annotating: null };
+  private state: State = { numbers: new Map(), roles: [], steps: [], snippets: [], images: new Map(), keyOf: (id) => id, annotating: null, resizing: null };
   private listeners = new Set<() => void>();
   get = () => this.state;
   subscribe = (l: () => void) => {

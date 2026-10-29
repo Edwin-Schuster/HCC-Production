@@ -3,7 +3,7 @@
 import "@blocknote/mantine/style.css";
 import "./editor.css";
 import { BlockNoteView } from "@blocknote/mantine";
-import { DragHandleMenu, RemoveBlockItem, SideMenu, SideMenuController, SuggestionMenuController, useCreateBlockNote } from "@blocknote/react";
+import { DragHandleMenu, FormattingToolbar, FormattingToolbarController, getFormattingToolbarItems, RemoveBlockItem, SideMenu, SideMenuController, SuggestionMenuController, useCreateBlockNote } from "@blocknote/react";
 import { ArrowLeft, Eye, MoreHorizontal, Pencil, Send, ShieldCheck, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -23,8 +23,9 @@ import { cn } from "@/lib/utils";
 import { expandSnippets } from "@/blocks/snippets";
 import { numberSteps, plain, walk } from "@/blocks/tree";
 import { fromBlockNote, imageExtras, keyMap, toBlockNote, type BNBlock } from "./convert";
-import { AnnotateItem, CollapseItem, DuplicateItem, getSlashItems } from "./menu-items";
+import { AnnotateItem, CollapseItem, DuplicateItem, getSlashItems, ResizeButton, ResizeItem } from "./menu-items";
 import { AnnotateHost } from "./annotate-host";
+import { ImageEditHost } from "./image-edit-host";
 import { sopSchema, type SopEditor as Editor } from "./schema";
 import { catalogResolver, storeFor, type SnippetCatalogItem } from "./store";
 
@@ -460,6 +461,7 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
             theme={theme}
             slashMenu={false}
             sideMenu={false}
+            formattingToolbar={false}
             onChange={() => {
               renumber();
               changed();
@@ -467,6 +469,7 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
             className="hcc-editor"
           >
             <SuggestionMenuController triggerCharacter="/" getItems={getSlashItems(editor)} />
+            <FormattingToolbarController formattingToolbar={() => <FormattingToolbar>{[...getFormattingToolbarItems(), <ResizeButton key="resize" />]}</FormattingToolbar>} />
             <SideMenuController
               sideMenu={(props) => (
                 <SideMenu
@@ -475,6 +478,7 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
                     <DragHandleMenu>
                       <DuplicateItem>Duplicate</DuplicateItem>
                       <CollapseItem />
+                      <ResizeItem />
                       <AnnotateItem />
                       <RemoveBlockItem>Delete</RemoveBlockItem>
                     </DragHandleMenu>
@@ -484,6 +488,7 @@ export default function SopEditor({ sopId, documentCode, folderName, published, 
             />
           </BlockNoteView>
           <AnnotateHost editor={editor} upload={uploadFile} />
+          <ImageEditHost editor={editor} upload={uploadFile} />
         </div>
         {preview && (
           <div className="mt-8 sm:pl-[54px]">
