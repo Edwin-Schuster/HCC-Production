@@ -6,7 +6,7 @@ import { listFolders } from "@/server/services/folders";
 import { listSops } from "@/server/services/sops";
 import { unreadCount } from "@/server/services/notifications";
 import { openTrainingCount } from "@/server/services/training";
-import { FolderTree, NavIcons, NavLink } from "@/components/shell/nav";
+import { NavIcons, NavLink, SopTree } from "@/components/shell/nav";
 import { PaletteButton, ShellFrame } from "@/components/shell/frame";
 import { CommandPalette } from "@/components/shell/palette";
 import { UserMenu } from "@/components/shell/user-menu";
@@ -49,8 +49,6 @@ function Nav() {
 async function NavContent() {
   const { db, actor } = await getContext();
   const [folders, sops, unread, training] = await Promise.all([listFolders(db, actor), listSops(db, actor), unreadCount(db, actor), openTrainingCount(db, actor)]);
-  const counts = new Map<string, number>();
-  for (const s of sops) counts.set(s.folderId, (counts.get(s.folderId) ?? 0) + 1);
   const editor = atLeast(actor, "editor");
   const reviewsDue = editor ? sops.filter((s) => s.reviewState === "overdue" || s.reviewState === "due").length : 0;
   return (
@@ -127,7 +125,12 @@ async function NavContent() {
         <NavLink href="/sops" icon={NavIcons.library} exact>
           All SOPs
         </NavLink>
-        <FolderTree folders={folders.map((f) => ({ id: f.id, name: f.name, depth: f.depth, count: counts.get(f.id) ?? 0 }))} />
+        <div className="mt-3">
+          <SopTree
+            folders={folders.map((f) => ({ id: f.id, name: f.name, parentId: f.parentId }))}
+            sops={sops.filter((s) => s.status !== "retired").map((s) => ({ id: s.id, title: s.title, folderId: s.folderId, draft: s.versionNumber === null }))}
+          />
+        </div>
       </nav>
       <div className="mt-auto border-t border-line pt-3">
         <UserMenu user={actor.userId ? { name: actor.name, role: actor.role } : null} />

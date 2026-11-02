@@ -22,7 +22,7 @@ test("version history shows both published versions", async ({ page }) => {
 test("search finds text inside steps and callouts", async ({ page }) => {
   await signIn(page);
   await page.goto("/search?q=amplifiers");
-  await expect(page.getByRole("link", { name: /Sunday System Startup/ })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("link", { name: /Sunday System Startup/ })).toBeVisible();
   await expect(page.locator("mark").first()).toBeVisible();
 });
 
@@ -34,4 +34,23 @@ test("PDF export returns a PDF", async ({ page }) => {
   expect(res.status()).toBe(200);
   expect(res.headers()["content-type"]).toContain("application/pdf");
   expect((await res.body()).subarray(0, 5).toString()).toBe("%PDF-");
+});
+
+test("the sidebar lists folders as headings with their SOPs underneath", async ({ page }) => {
+  await page.goto("/sops");
+  const nav = page.getByRole("navigation", { name: "SOPs" });
+  // Signed out: only public folders and their published SOPs.
+  await expect(nav.getByRole("link", { name: "Sunday System Startup" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Wireless Mic Frequencies & Batteries" })).toHaveCount(0);
+
+  await signIn(page);
+  await nav.getByRole("link", { name: "Sunday System Startup" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Sunday System Startup" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Sunday System Startup" })).toHaveAttribute("aria-current", "page");
+  // A sub-folder folds open to show its SOPs.
+  await nav.getByRole("button", { name: "Show Wireless" }).click();
+  await expect(nav.getByRole("link", { name: "Wireless Mic Frequencies & Batteries" })).toBeVisible();
+  // The heading still opens the folder.
+  await nav.getByRole("link", { name: "Sunday Service", exact: true }).click();
+  await expect(page).toHaveURL(/\/sops\?folder=/);
 });

@@ -11,13 +11,16 @@ const Id = z.string().min(1).max(64);
 
 export async function createSopAction(input: z.input<typeof CreateSopInput>) {
   const res = await run((db, actor) => createSop(db, actor, input));
-  if (res.ok) redirect(`/sops/${res.data.id}/edit`);
+  if (res.ok) {
+    revalidatePath("/", "layout"); // the sidebar lists every SOP
+    redirect(`/sops/${res.data.id}/edit`);
+  }
   return res;
 }
 
 export async function publishAction(sopId: string, changeSummary: string) {
   const res = await run((db, actor) => publishDraft(db, actor, Id.parse(sopId), { changeSummary }));
-  if (res.ok) revalidatePath("/sops", "layout");
+  if (res.ok) revalidatePath("/", "layout");
   return res;
 }
 
@@ -41,7 +44,10 @@ export async function setRetiredAction(sopId: string, retired: boolean) {
 
 export async function deleteSopAction(sopId: string) {
   const res = await run((db, actor) => deleteSop(db, actor, Id.parse(sopId)));
-  if (res.ok) redirect("/sops");
+  if (res.ok) {
+    revalidatePath("/", "layout");
+    redirect("/sops");
+  }
   return res;
 }
 
@@ -53,6 +59,9 @@ export async function restoreVersionAction(sopId: string, versionNumber: number,
 
 export async function createFromImportAction(input: z.input<typeof CreateFromImportInput>) {
   const res = await run((db, actor) => createFromImport(db, actor, input));
-  if (res.ok) redirect(`/sops/${res.data.id}/edit`);
+  if (res.ok) {
+    revalidatePath("/", "layout"); // the sidebar lists every SOP
+    redirect(`/sops/${res.data.id}/edit`);
+  }
   return res;
 }
