@@ -39,3 +39,19 @@ test("plan a part, order it, receive it, and watch the budget move", async ({ pa
   await page.goto("/purchasing");
   await expect(page.getByRole("row", { name: /B&H.*Youth Room Install/ })).toBeVisible();
 });
+
+test("link a Google Sheet to a project's Budget tab", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/projects");
+  await page.getByRole("link", { name: /Youth Room Install/ }).first().click();
+  await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Budget" }).click();
+  await page.getByLabel("Google Sheets link").fill("https://docs.google.com/spreadsheets/d/1_KkJOYGKyhAlCgzB1ROgPMZ125UpZTFqN0hddbTA88E/edit?usp=sharing");
+  await page.getByRole("button", { name: "Link spreadsheet" }).click();
+  const frame = page.locator('iframe[title="Budget spreadsheet"]');
+  await expect(frame).toHaveAttribute("src", "https://docs.google.com/spreadsheets/d/1_KkJOYGKyhAlCgzB1ROgPMZ125UpZTFqN0hddbTA88E/edit");
+  await expect(page.getByRole("link", { name: "Open in Google Sheets" })).toHaveAttribute("target", "_blank");
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Remove spreadsheet" }).click();
+  await expect(frame).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Link spreadsheet" })).toBeVisible();
+});

@@ -690,6 +690,8 @@ export const projects = pgTable("projects", {
   summary: text("summary").notNull().default(""),
   description: text("description").notNull().default(""),
   budgetCents: integer("budget_cents").notNull().default(0),
+  /** A Google Sheet shown, editable, on the project's Budget tab. */
+  budgetSheetUrl: text("budget_sheet_url"),
   leadId: text("lead_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),

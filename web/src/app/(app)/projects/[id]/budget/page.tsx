@@ -6,6 +6,7 @@ import { loadProject } from "@/server/services/projects";
 import { listBom, listPurchaseOrders, nextPoNumber, projectBudget } from "@/server/services/purchasing";
 import { Stat } from "@/components/work/overview";
 import { BomSection, PurchaseOrders } from "@/components/work/purchasing";
+import { BudgetSheet } from "@/components/work/budget-sheet";
 import { formatMoney } from "@/lib/format";
 import { slug } from "@/lib/csv";
 import { cn } from "@/lib/utils";
@@ -60,6 +61,8 @@ async function Content({ params }: { params: PageProps<"/projects/[id]/budget">[
           </div>
         )}
       </div>
+
+      <BudgetSheet key={project.budgetSheetUrl ?? "none"} projectId={id} url={project.budgetSheetUrl} />
 
       {b.byCategory.length > 0 && (
         <section aria-labelledby="cat-h">

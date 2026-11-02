@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "budget_sheet_url" text;

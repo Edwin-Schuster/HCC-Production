@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { refresh } from "next/cache";
 import { z } from "zod";
-import { createProject, deleteProject, updateProject, type ProjectInput } from "@/server/services/projects";
+import { createProject, deleteProject, setBudgetSheet, updateProject, type ProjectInput } from "@/server/services/projects";
 import { commentOnTask, createTask, deleteTask, deleteWorkComment, moveTask, updateTask, type TaskInput, type TaskPatch } from "@/server/services/tasks";
 import type { TaskStatus } from "@/lib/work";
 import { createCable, createLayout, deleteCable, deleteLayout, saveLayout, updateCable, type CableInput, type LayoutInput } from "@/server/services/cabling";
@@ -25,6 +25,9 @@ export async function deleteProjectAction(id: string) {
   if (res.ok) redirect("/projects");
   return res;
 }
+
+export const setBudgetSheetAction = async (projectId: string, url: string | null) =>
+  done(await run(async (db, actor) => ({ url: await setBudgetSheet(db, actor, Id.parse(projectId), url === null ? null : z.string().max(2_000).parse(url)) })));
 
 export const createTaskAction = async (input: z.input<typeof TaskInput>) => done(await run(async (db, actor) => ({ id: (await createTask(db, actor, input)).id })));
 export const updateTaskAction = async (id: string, patch: z.input<typeof TaskPatch>) => done(await run(async (db, actor) => void (await updateTask(db, actor, Id.parse(id), patch))));

@@ -2,6 +2,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Executor } from "@/db";
 import { projects, tasks, users, workspaceMembers } from "@/db/schema";
+import { parseSheetUrl, sheetEditUrl } from "@/lib/sheets";
 import { PROJECT_STATUSES, PROJECT_STATUS_LABEL, today, type ProjectStatus } from "@/lib/work";
 import { forbidden, invalid, notFound } from "@/server/errors";
 import { atLeast, type Actor } from "@/server/permissions";
@@ -19,6 +20,8 @@ export type ProjectSummary = { id: string; name: string; status: ProjectStatus; 
 export type Project = ProjectSummary & {
   description: string;
   budgetCents: number;
+  /** A Google Sheet shown on the Budget tab. */
+  budgetSheetUrl: string | null;
   leadId: string | null;
   leadName: string | null;
   progress: { total: number; done: number; overdue: number };
@@ -56,6 +59,7 @@ async function fullRows(db: Executor, actor: Actor, id?: string): Promise<Projec
     ...summaryOf(p),
     description: p.description,
     budgetCents: p.budgetCents,
+    budgetSheetUrl: p.budgetSheetUrl,
     leadId: p.leadId,
     leadName,
     progress: { total, done, overdue },
@@ -149,6 +153,21 @@ export async function updateProject(db: Executor, actor: Actor, id: string, inpu
   ).join(", ");
   await logActivity(db, actor, { projectId: id, targetType: "project", targetId: id, targetName: row.name, text });
   return row;
+}
+
+/** Links a Google Sheet to the project's Budget tab, or unlinks it (null). */
+export async function setBudgetSheet(db: Executor, actor: Actor, id: string, url: string | null) {
+  requireEditor(actor, "budgets");
+  const project = await loadProject(db, actor, id);
+  let stored: string | null = null;
+  if (url !== null) {
+    const ref = parseSheetUrl(url);
+    if (!ref) throw invalid("Paste a Google Sheets link, like https://docs.google.com/spreadsheets/d/…");
+    stored = sheetEditUrl(ref);
+  }
+  await db.update(projects).set({ budgetSheetUrl: stored, updatedAt: new Date() }).where(eq(projects.id, id));
+  await logActivity(db, actor, { projectId: id, targetType: "project", targetId: id, targetName: project.name, text: stored ? "linked a budget spreadsheet" : "removed the budget spreadsheet" });
+  return stored;
 }
 
 /** Deletes a project and everything in it (tasks, cables, layouts, purchasing, contractors' work). */
