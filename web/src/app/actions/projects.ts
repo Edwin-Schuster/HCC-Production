@@ -6,7 +6,7 @@ import { z } from "zod";
 import { createProject, deleteProject, setBudgetSheet, updateProject, type ProjectInput } from "@/server/services/projects";
 import { commentOnTask, createTask, deleteTask, deleteWorkComment, moveTask, updateTask, type TaskInput, type TaskPatch } from "@/server/services/tasks";
 import type { TaskStatus } from "@/lib/work";
-import { createCable, createLayout, deleteCable, deleteLayout, saveLayout, updateCable, type CableInput, type LayoutInput } from "@/server/services/cabling";
+import { createCable, createLayout, deleteCable, deleteLayout, importCables, saveLayout, updateCable, type CableInput, type ImportCablesInput, type LayoutInput } from "@/server/services/cabling";
 import { createBomItem, createPurchaseOrder, deleteBomItem, deletePurchaseOrder, receivePurchaseOrder, updateBomItem, updatePurchaseOrder, type BomInput, type PoInput, type ReceiveInput } from "@/server/services/purchasing";
 import { addPhotos, deletePhoto, updatePhoto, type PhotoEdit, type PhotoInput } from "@/server/services/photos";
 import { run } from "./run";
@@ -38,6 +38,7 @@ export const deleteWorkCommentAction = async (id: string) => done(await run((db,
 
 export const saveCableAction = async (projectId: string, input: z.input<typeof CableInput>, id?: string) =>
   done(await run(async (db, actor) => void (id ? await updateCable(db, actor, Id.parse(id), input) : await createCable(db, actor, Id.parse(projectId), input))));
+export const importCablesAction = async (projectId: string, rows: z.input<typeof ImportCablesInput>) => done(await run((db, actor) => importCables(db, actor, Id.parse(projectId), rows)));
 export const deleteCableAction = async (id: string) => done(await run((db, actor) => deleteCable(db, actor, Id.parse(id))));
 
 export async function createLayoutAction(projectId: string) {

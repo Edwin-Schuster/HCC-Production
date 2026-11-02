@@ -1,17 +1,19 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Download, Plus, Printer, Search, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, FileSpreadsheet, Plus, Printer, Search, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { deleteCableAction, saveCableAction } from "@/app/actions/projects";
+import { deleteCableAction, importCablesAction, saveCableAction } from "@/app/actions/projects";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { cableRows, matchRows, type CableRow } from "@/lib/cable-import";
 import { CABLE_STATUSES, CABLE_STATUS_LABEL, CABLE_TYPES, type CableStatus } from "@/lib/cabling";
 import { downloadCsv, slug } from "@/lib/csv";
 import { labelHue } from "@/lib/work";
+import { readCsv, readXlsx, type Sheet } from "@/lib/xlsx";
 import { cn } from "@/lib/utils";
 import type { Cable } from "@/server/services/cabling";
 
@@ -28,25 +30,28 @@ export function CableType({ type }: { type: string }) {
   );
 }
 
-type SortKey = "label" | "type" | "from" | "to" | "lengthFt" | "status" | "room";
+type SortKey = "label" | "name" | "type" | "from" | "to" | "lengthFt" | "status" | "room" | "who";
 const COLUMNS: [SortKey, string, string?][] = [
   ["label", "Cable ID"],
+  ["name", "Name"],
   ["type", "Type"],
   ["from", "From"],
   ["to", "To"],
   ["lengthFt", "Length", "text-right"],
   ["status", "Status"],
   ["room", "Room", "max-md:hidden"],
+  ["who", "Who", "max-lg:hidden"],
 ];
 
 export function CablingView({ projectId, projectName, cables }: { projectId: string; projectName: string; cables: Cable[] }) {
   const [editing, setEditing] = useState<Cable | "new" | null>(null);
+  const [importing, setImporting] = useState(false);
   const [status, setStatus] = useState<CableStatus | "">("");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "label", dir: 1 });
   const query = q.trim().toLowerCase();
   const rows = cables
-    .filter((c) => (!status || c.status === status) && (!query || `${c.label} ${c.type} ${c.from} ${c.to} ${c.room} ${c.notes}`.toLowerCase().includes(query)))
+    .filter((c) => (!status || c.status === status) && (!query || `${c.label} ${c.name} ${c.type} ${c.from} ${c.to} ${c.room} ${c.who} ${c.notes}`.toLowerCase().includes(query)))
     .sort((a, b) => {
       const k = sort.key;
       const av = k === "status" ? CABLE_STATUSES.indexOf(a.status) : k === "lengthFt" ? (a.lengthFt ?? -1) : String(a[k]).toLowerCase();
@@ -80,13 +85,16 @@ export function CablingView({ projectId, projectName, cables }: { projectId: str
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter cables" aria-label="Filter cables" className="h-8 pl-8" />
         </label>
         <span className="flex-1" />
-        <Button size="sm" variant="ghost" onClick={() => downloadCsv(`cable-schedule-${slug(projectName)}`, [["Cable ID", "Type", "From", "To", "Length (ft)", "Status", "Room", "Notes"], ...rows.map((c) => [c.label, c.type, c.from, c.to, c.lengthFt ?? "", CABLE_STATUS_LABEL[c.status], c.room, c.notes])])}>
+        <Button size="sm" variant="ghost" onClick={() => downloadCsv(`cable-schedule-${slug(projectName)}`, [["Cable ID", "Name", "Type", "From", "To", "Length (ft)", "Status", "Room", "Who", "Notes"], ...rows.map((c) => [c.label, c.name, c.type, c.from, c.to, c.lengthFt ?? "", CABLE_STATUS_LABEL[c.status], c.room, c.who, c.notes])])}>
           <Download /> CSV
         </Button>
         <Button asChild size="sm" variant="ghost">
           <Link href={`/print/cables/${projectId}`} target="_blank">
             <Printer /> Cable labels
           </Link>
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setImporting(true)}>
+          <FileSpreadsheet /> Import spreadsheet
         </Button>
         <Button size="sm" variant="primary" onClick={() => setEditing("new")}>
           <Plus /> Cable
@@ -95,7 +103,7 @@ export function CablingView({ projectId, projectName, cables }: { projectId: str
 
       {cables.length ? (
         <div className="overflow-x-auto rounded-[12px] border border-line bg-surface">
-          <table className="w-full min-w-[640px] text-[13px]">
+          <table className="w-full min-w-[760px] text-[13px]">
             <thead>
               <tr className="border-b border-line text-left text-xs text-muted">
                 {COLUMNS.map(([k, label, cls]) => (
@@ -117,7 +125,8 @@ export function CablingView({ projectId, projectName, cables }: { projectId: str
                       {c.label}
                     </button>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="max-w-56 px-3 py-2 text-fg-hi">{c.name}</td>
+                  <td className="max-w-48 px-3 py-2">
                     <CableType type={c.type} />
                   </td>
                   <td className="px-3 py-2 text-fg-2">{c.from}</td>
@@ -127,12 +136,13 @@ export function CablingView({ projectId, projectName, cables }: { projectId: str
                     <CableStatusBadge status={c.status} />
                   </td>
                   <td className="px-3 py-2 text-fg-2 max-md:hidden">{c.room}</td>
+                  <td className="px-3 py-2 text-fg-2 max-lg:hidden">{c.who}</td>
                   <td className="max-w-56 truncate px-3 py-2 text-muted max-lg:hidden">{c.notes}</td>
                 </tr>
               ))}
               {!rows.length && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-muted">
+                  <td colSpan={10} className="px-3 py-8 text-center text-muted">
                     No cables match.
                   </td>
                 </tr>
@@ -141,7 +151,7 @@ export function CablingView({ projectId, projectName, cables }: { projectId: str
           </table>
         </div>
       ) : (
-        <p className="rounded-[12px] border border-dashed border-line px-6 py-10 text-center text-[13px] text-muted">No cables in the schedule yet. Add each run with an ID like NET-014 so both ends can be labelled.</p>
+        <p className="rounded-[12px] border border-dashed border-line px-6 py-10 text-center text-[13px] text-muted">No cables in the schedule yet. Add each run with an ID like NET-014 so both ends can be labelled, or import them from a spreadsheet.</p>
       )}
 
       {byType.length > 0 && (
@@ -164,6 +174,7 @@ export function CablingView({ projectId, projectName, cables }: { projectId: str
       )}
 
       <CableDialog key={editing === "new" ? "new" : editing?.id} projectId={projectId} cable={editing} onClose={() => setEditing(null)} />
+      {importing && <ImportCablesDialog projectId={projectId} cables={cables} onClose={() => setImporting(false)} />}
     </>
   );
 }
@@ -183,7 +194,7 @@ function CableDialog({ projectId, cable, onClose }: { projectId: string; cable: 
             start(async () => {
               const res = await saveCableAction(
                 projectId,
-                { label: s("label"), type: s("type") || "Other", from: s("from"), to: s("to"), lengthFt: s("lengthFt") ? Number(s("lengthFt")) : null, status: s("status") as CableStatus, room: s("room"), notes: s("notes") },
+                { label: s("label"), name: s("name"), type: s("type") || "Other", from: s("from"), to: s("to"), lengthFt: s("lengthFt") ? Number(s("lengthFt")) : null, status: s("status") as CableStatus, room: s("room"), who: s("who"), notes: s("notes") },
                 current?.id,
               );
               if (!res.ok) return void toast.error(res.error);
@@ -196,7 +207,10 @@ function CableDialog({ projectId, cable, onClose }: { projectId: string; cable: 
             <Field label="Cable ID" htmlFor="cb-label">
               <Input id="cb-label" name="label" defaultValue={current?.label} required autoFocus className="font-mono" placeholder="NET-014" />
             </Field>
-            <Field label="Type" htmlFor="cb-type">
+            <Field label="Name" htmlFor="cb-name">
+              <Input id="cb-name" name="name" defaultValue={current?.name} placeholder="Camera 1 Video 1" />
+            </Field>
+            <Field label="Type" htmlFor="cb-type" className="col-span-2">
               <Input id="cb-type" name="type" list="cable-types" defaultValue={current?.type ?? "Cat6A"} />
               <datalist id="cable-types">
                 {CABLE_TYPES.map((t) => (
@@ -223,9 +237,14 @@ function CableDialog({ projectId, cable, onClose }: { projectId: string; cable: 
               </Select>
             </Field>
           </div>
-          <Field label="Room" htmlFor="cb-room">
-            <Input id="cb-room" name="room" defaultValue={current?.room} placeholder="Sanctuary" />
-          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Room" htmlFor="cb-room">
+              <Input id="cb-room" name="room" defaultValue={current?.room} placeholder="Sanctuary" />
+            </Field>
+            <Field label="Who" htmlFor="cb-who">
+              <Input id="cb-who" name="who" defaultValue={current?.who} placeholder="Installer or contractor" />
+            </Field>
+          </div>
           <Field label="Notes" htmlFor="cb-notes">
             <Textarea id="cb-notes" name="notes" defaultValue={current?.notes} rows={2} />
           </Field>
@@ -256,6 +275,129 @@ function CableDialog({ projectId, cable, onClose }: { projectId: string; cable: 
             </Button>
           </div>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Picks the sheet most likely to hold cables: the last one whose name mentions cables, else the first that reads as one. */
+function bestSheet(sheets: Sheet[]): number {
+  const readable = sheets.map((sh) => cableRows(sh.rows) !== null);
+  for (let i = sheets.length - 1; i >= 0; i--) if (readable[i] && /cabl/i.test(sheets[i].name)) return i;
+  const first = readable.indexOf(true);
+  return first >= 0 ? first : 0;
+}
+
+function ImportCablesDialog({ projectId, cables, onClose }: { projectId: string; cables: Cable[]; onClose: () => void }) {
+  const [sheets, setSheets] = useState<Sheet[] | null>(null);
+  const [index, setIndex] = useState(0);
+  const [fileName, setFileName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  const parsed = sheets ? cableRows(sheets[index]?.rows ?? []) : null;
+  const rows: CableRow[] = parsed?.rows ?? [];
+  const updates = matchRows(cables, rows).filter((i) => i >= 0).length;
+
+  const pick = async (file: File) => {
+    setError(null);
+    setFileName(file.name);
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const list = /\.csv$/i.test(file.name) ? [{ name: file.name.replace(/\.csv$/i, ""), rows: readCsv(new TextDecoder().decode(bytes)) }] : readXlsx(bytes);
+      if (!list.length) throw new Error("That file has no sheets.");
+      setSheets(list);
+      setIndex(bestSheet(list));
+    } catch (e) {
+      setSheets(null);
+      setError(e instanceof Error ? e.message : "Couldn't read that file.");
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent wide title="Import cables from a spreadsheet" description="An Excel (.xlsx) or CSV file. From Google Sheets: File → Download → Microsoft Excel (.xlsx)." className="sm:w-[min(1000px,calc(100vw-32px))]">
+        <div className="grid gap-4">
+          <Field label="Spreadsheet" htmlFor="cable-file" hint="Columns are found by their headings: Area, Name, Cable, Location From, Location To, Who and Notes. Cable ID, Length and Status are used when present.">
+            <Input id="cable-file" type="file" accept=".xlsx,.csv" onChange={(e) => e.target.files?.[0] && void pick(e.target.files[0])} />
+          </Field>
+          {error && (
+            <p role="alert" className="text-[13px] text-bad">
+              {error}
+            </p>
+          )}
+          {sheets && (
+            <>
+              {sheets.length > 1 && (
+                <Field label="Sheet" htmlFor="cable-sheet">
+                  <Select id="cable-sheet" value={index} onChange={(e) => setIndex(Number(e.target.value))}>
+                    {sheets.map((sh, i) => (
+                      <option key={i} value={i}>
+                        {sh.name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
+              {!parsed ? (
+                <p className="rounded-[8px] border border-warn/40 bg-warn-soft px-3 py-2 text-[13px] text-fg-2">This sheet has no heading row with columns like Name, Cable, Location From and Location To.</p>
+              ) : (
+                <>
+                  <p className="text-[13px] text-fg-2" data-testid="import-summary">
+                    {rows.length} cable{rows.length === 1 ? "" : "s"} in {fileName}: {rows.length - updates} new, {updates} already in the schedule (updated from the sheet)
+                    {parsed.skipped ? `, ${parsed.skipped} row${parsed.skipped === 1 ? "" : "s"} without a name or cable skipped` : ""}. New cables get IDs by type, like NET-001.
+                  </p>
+                  <div className="max-h-[45vh] overflow-auto rounded-[12px] border border-line">
+                    <table className="w-full min-w-[720px] text-[12.5px]">
+                      <thead className="sticky top-0 bg-surface">
+                        <tr className="border-b border-line text-left text-xs text-muted">
+                          {["Area", "Name", "Cable", "From", "To", "Who", "Notes"].map((h) => (
+                            <th key={h} className="px-2.5 py-1.5 font-normal">
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((r, i) => (
+                          <tr key={i} className="border-b border-line last:border-0">
+                            <td className="px-2.5 py-1.5 text-fg-2">{r.room}</td>
+                            <td className="px-2.5 py-1.5 text-fg-hi">{r.label ? <span className="mr-1.5 font-mono text-xs">{r.label}</span> : null}{r.name}</td>
+                            <td className="px-2.5 py-1.5 text-fg-2">{r.type}</td>
+                            <td className="px-2.5 py-1.5 text-fg-2">{r.from}</td>
+                            <td className="px-2.5 py-1.5 text-fg-2">{r.to}</td>
+                            <td className="px-2.5 py-1.5 text-fg-2">{r.who}</td>
+                            <td className="max-w-48 truncate px-2.5 py-1.5 text-muted">{r.notes}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              disabled={pending || !rows.length}
+              onClick={() =>
+                start(async () => {
+                  const res = await importCablesAction(projectId, rows);
+                  if (!res.ok) return void toast.error(res.error);
+                  const { created, updated, unchanged } = res.data;
+                  toast(`Imported: ${created} added, ${updated} updated${unchanged ? `, ${unchanged} unchanged` : ""}`);
+                  onClose();
+                })
+              }
+            >
+              {pending ? "Importing…" : rows.length ? `Import ${rows.length} cable${rows.length === 1 ? "" : "s"}` : "Import"}
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

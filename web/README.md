@@ -21,7 +21,7 @@ Production modules:
 - **Roster:** people and the production roles they fill. Everyone can change their own name and email on their Profile; admins can rename anyone under People & roles.
 - **Tasks:** your assigned project tasks in one list, plus **general tasks** that don't belong to any project.
 - **Projects:** tasks in **list, board, calendar and timeline** views, with subtasks, assignees, labels, dates, files, comments with @mentions and a readable history. Due-date reminders, a subscribable **calendar feed**, CSV export and a printable **project report**.
-- **Cabling and room layouts:** a cable schedule with footage by type and printable labels for both ends; floor plans with zones, devices linked to gear and cable runs linked to the schedule. Works with touch.
+- **Cabling and room layouts:** a cable schedule (import it from an Excel or CSV sheet: pick the tab, preview, and re-import later to update) with footage by type and printable labels for both ends; floor plans with zones, devices linked to gear and cable runs linked to the schedule. Works with touch.
 - **Budgets** (purchasing): bill of materials, purchase orders with lines and attachments, receiving (which updates the BOM), and planned / committed / spent / remaining by category.
 - **Contractors:** directory with insurance-expiry warnings and documents, scopes of work in Markdown, site access (also in the calendar feed), punch lists with photos, and invoices.
 - **Gear:** inventory with serials, asset tags and addresses, a printable firmware label with update history, and config backups with a viewer that has line numbers and a filter.

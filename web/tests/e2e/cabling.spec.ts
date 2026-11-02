@@ -1,3 +1,4 @@
+import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { signIn } from "./helpers";
 
@@ -60,4 +61,29 @@ test("draw a room layout and link a run to a cable", async ({ page }) => {
   await page.reload();
   await expect(page.getByLabel("Layout name")).toHaveValue("Lobby");
   await expect(page.locator("svg.touch-none").getByText("FO-001")).toBeVisible();
+});
+
+test("import cables from a spreadsheet tab into the cable schedule", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/projects");
+  await page.getByRole("link", { name: /Youth Room Install/ }).first().click();
+  await page.getByRole("navigation", { name: "Project" }).getByRole("link", { name: "Cabling" }).click();
+  await page.getByRole("button", { name: "Import spreadsheet" }).click();
+  const dialog = page.getByRole("dialog", { name: "Import cables from a spreadsheet" });
+  await dialog.getByLabel("Spreadsheet", { exact: true }).setInputFiles(path.join(__dirname, "../fixtures/cables.xlsx"));
+  await expect(dialog.getByLabel("Sheet", { exact: true })).toHaveValue("2"); // the newest "Cable Runs" tab
+  await expect(dialog.getByTestId("import-summary")).toContainText("8 cables in cables.xlsx: 8 new, 0 already in the schedule");
+  await expect(dialog.getByRole("row", { name: /Atrium TV 1/ })).toContainText("Mezzanine Server Closet");
+  await dialog.getByRole("button", { name: "Import 8 cables" }).click();
+  await expect(dialog).toBeHidden();
+
+  const tv = page.getByRole("row", { name: /Atrium TV 1/ });
+  await expect(tv).toContainText("NET-");
+  await expect(tv).toContainText("Atrium");
+  await expect(page.getByRole("row", { name: /Camera 1 Video 1/ })).toContainText("VID-001");
+
+  // Importing the same sheet again changes nothing.
+  await page.getByRole("button", { name: "Import spreadsheet" }).click();
+  await dialog.getByLabel("Spreadsheet", { exact: true }).setInputFiles(path.join(__dirname, "../fixtures/cables.xlsx"));
+  await expect(dialog.getByTestId("import-summary")).toContainText("0 new, 8 already in the schedule");
 });

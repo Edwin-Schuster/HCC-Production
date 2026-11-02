@@ -32,8 +32,8 @@ async function Labels({ params }: { params: PageProps<"/print/cables/[projectId]
     throw e;
   }
   const ends = cables.flatMap((c) => [
-    { key: `${c.id}-a`, id: `${c.label}-A`, type: c.type, here: c.from, there: c.to },
-    { key: `${c.id}-b`, id: `${c.label}-B`, type: c.type, here: c.to, there: c.from },
+    { key: `${c.id}-a`, id: `${c.label}-A`, name: c.name, type: c.type, here: c.from, there: c.to },
+    { key: `${c.id}-b`, id: `${c.label}-B`, name: c.name, type: c.type, here: c.to, there: c.from },
   ]);
   return (
     <div data-theme="light" className="min-h-dvh bg-white px-6 py-8 text-[#1d1e21] print:p-0">
@@ -50,6 +50,7 @@ async function Labels({ params }: { params: PageProps<"/print/cables/[projectId]
         {ends.map((e) => (
           <div key={e.key} className="flex break-inside-avoid flex-col gap-0.5 rounded-[4px] border border-[#c9ccd2] px-3 py-2 text-[11px] leading-tight">
             <b className="font-mono text-[16px] tracking-tight text-black">{e.id}</b>
+            {e.name && <span className="font-[510] text-black">{e.name}</span>}
             <span>{e.type}</span>
             <span>
               <span className="text-[#5f636a]">THIS END:</span> {e.here || "—"}

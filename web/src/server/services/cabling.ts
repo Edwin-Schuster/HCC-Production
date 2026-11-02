@@ -1,5 +1,6 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
+import { labelPrefix, matchRows } from "@/lib/cable-import";
 import type { Executor } from "@/db";
 import { cables, gear, layouts, type LayoutItem, type LayoutRun } from "@/db/schema";
 import { CABLE_STATUSES, CABLE_STATUS_LABEL, DEVICE_TYPE_KEYS, type CableStatus } from "@/lib/cabling";
@@ -14,26 +15,30 @@ export type Cable = {
   id: string;
   projectId: string;
   label: string;
+  name: string;
   type: string;
   from: string;
   to: string;
   lengthFt: number | null;
   status: CableStatus;
   room: string;
+  who: string;
   notes: string;
 };
 
 const asStatus = (s: string): CableStatus => ((CABLE_STATUSES as readonly string[]).includes(s) ? (s as CableStatus) : "planned");
-const toCable = (c: typeof cables.$inferSelect): Cable => ({ id: c.id, projectId: c.projectId, label: c.label, type: c.type, from: c.from, to: c.to, lengthFt: c.lengthFt, status: asStatus(c.status), room: c.room, notes: c.notes });
+const toCable = (c: typeof cables.$inferSelect): Cable => ({ id: c.id, projectId: c.projectId, label: c.label, name: c.name, type: c.type, from: c.from, to: c.to, lengthFt: c.lengthFt, status: asStatus(c.status), room: c.room, who: c.who, notes: c.notes });
 
 export const CableInput = z.object({
   label: z.string().trim().min(1, "Give the cable an ID, like NET-014").max(40),
-  type: z.string().trim().min(1).max(40).default("Other"),
+  name: z.string().trim().max(160).default(""),
+  type: z.string().trim().min(1).max(80).default("Other"),
   from: z.string().trim().max(120).default(""),
   to: z.string().trim().max(120).default(""),
   lengthFt: z.number().min(0).max(100_000).nullable().default(null),
   status: z.enum(CABLE_STATUSES).default("planned"),
   room: z.string().trim().max(80).default(""),
+  who: z.string().trim().max(80).default(""),
   notes: z.string().trim().max(1_000).default(""),
 });
 
@@ -70,6 +75,80 @@ export async function createCable(db: Executor, actor: Actor, projectId: string,
   return toCable(row);
 }
 
+export const ImportCablesInput = z
+  .array(
+    z.object({
+      label: z.string().trim().max(40).default(""),
+      name: z.string().trim().max(160).default(""),
+      type: z.string().trim().max(80).default(""),
+      from: z.string().trim().max(120).default(""),
+      to: z.string().trim().max(120).default(""),
+      room: z.string().trim().max(80).default(""),
+      who: z.string().trim().max(80).default(""),
+      notes: z.string().trim().max(1_000).default(""),
+      lengthFt: z.number().min(0).max(100_000).nullable().default(null),
+      status: z.enum(CABLE_STATUSES).nullable().default(null),
+    }),
+  )
+  .max(5_000, "That's more than 5,000 cables. Split the sheet into smaller ones.");
+
+/**
+ * Adds a spreadsheet's cables to the schedule. Rows that came from the same sheet before (same cable ID, or
+ * same area, name, from and to) update those cables instead of adding duplicates. Cables without an ID get the
+ * next one for their type, like NET-012. Status and length change only when the sheet has them.
+ */
+export async function importCables(db: Executor, actor: Actor, projectId: string, input: z.input<typeof ImportCablesInput>) {
+  const project = await loadProject(db, actor, projectId);
+  const rows = ImportCablesInput.parse(input);
+  return db.transaction(async (tx) => {
+    const existing = await tx.select().from(cables).where(eq(cables.projectId, project.id)).orderBy(asc(cables.createdAt), asc(cables.label));
+    const next = new Map<string, number>();
+    for (const c of existing) {
+      const m = c.label.match(/^([A-Z]+)-(\d+)$/);
+      if (m) next.set(m[1], Math.max(next.get(m[1]) ?? 1, Number(m[2]) + 1));
+    }
+    const taken = new Set(existing.map((c) => c.label.toLowerCase()));
+    const newLabel = (type: string) => {
+      const prefix = labelPrefix(type);
+      for (;;) {
+        const n = next.get(prefix) ?? 1;
+        next.set(prefix, n + 1);
+        const label = `${prefix}-${String(n).padStart(3, "0")}`;
+        if (!taken.has(label.toLowerCase())) return label;
+      }
+    };
+
+    const matches = matchRows(existing, rows);
+    let created = 0;
+    let updated = 0;
+    let unchanged = 0;
+    for (const [i, r] of rows.entries()) {
+      const match = matches[i] >= 0 ? existing[matches[i]] : undefined;
+      const fields = { name: r.name, type: r.type || "Other", from: r.from, to: r.to, room: r.room, who: r.who, notes: r.notes, ...(r.lengthFt !== null ? { lengthFt: r.lengthFt } : {}), ...(r.status ? { status: r.status } : {}) };
+      if (match) {
+        const changed = Object.entries(fields).some(([k, v]) => match[k as keyof typeof match] !== v);
+        if (!changed) {
+          unchanged++;
+          continue;
+        }
+        await tx.update(cables).set({ ...fields, updatedAt: new Date() }).where(eq(cables.id, match.id));
+        updated++;
+      } else {
+        // Rows without a cable type (conduit, power) are named for what they are, so the name picks the prefix.
+        const label = r.label && !taken.has(r.label.toLowerCase()) ? r.label : newLabel(r.type || r.name);
+        taken.add(label.toLowerCase());
+        await tx.insert(cables).values({ workspaceId: actor.workspaceId, projectId: project.id, label, ...fields });
+        created++;
+      }
+    }
+    if (created || updated) {
+      const parts = [created && `added ${created} cable${created === 1 ? "" : "s"}`, updated && `updated ${updated}`].filter(Boolean).join(" and ");
+      await logActivity(tx, actor, { projectId: project.id, targetType: "project", targetId: project.id, targetName: project.name, text: `${parts} from a spreadsheet` });
+    }
+    return { created, updated, unchanged };
+  });
+}
+
 async function loadCable(db: Executor, actor: Actor, id: string) {
   requireEditor(actor, "the cable schedule");
   const [c] = await db.select().from(cables).where(and(eq(cables.id, id), eq(cables.workspaceId, actor.workspaceId))).limit(1);
@@ -77,7 +156,7 @@ async function loadCable(db: Executor, actor: Actor, id: string) {
   return c;
 }
 
-const LABELS = { label: "cable ID", type: "type", from: "from", to: "to", lengthFt: "length", status: "status", room: "room" };
+const LABELS = { label: "cable ID", name: "name", type: "type", from: "from", to: "to", lengthFt: "length", status: "status", room: "room", who: "who" };
 
 export async function updateCable(db: Executor, actor: Actor, id: string, input: z.input<typeof CableInput>) {
   const before = await loadCable(db, actor, id);

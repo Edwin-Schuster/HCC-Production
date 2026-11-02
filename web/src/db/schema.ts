@@ -768,12 +768,16 @@ export const cables = pgTable(
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
     label: text("label").notNull(),
+    /** What the run is for, e.g. "Camera 1 Video 1". */
+    name: text("name").notNull().default(""),
     type: text("type").notNull().default("Other"),
     from: text("from_location").notNull().default(""),
     to: text("to_location").notNull().default(""),
     lengthFt: doublePrecision("length_ft"),
     status: text("status").notNull().default("planned"),
     room: text("room").notNull().default(""),
+    /** Who pulls or owns the run (a person or a contractor). */
+    who: text("who").notNull().default(""),
     notes: text("notes").notNull().default(""),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
