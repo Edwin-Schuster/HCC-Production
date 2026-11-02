@@ -1,5 +1,6 @@
 import { parse, type HTMLElement, type Node } from "node-html-parser";
 import type { BlockNode, CalloutVariant, InlineRun, RichText } from "@/blocks/schema";
+import { decodeField, FIELD_TOKEN, parseBranch, parseMinutes, type StepField } from "./sop-markdown";
 
 /**
  * HTML (from Word via mammoth, Google Docs' HTML export, or Markdown) → SOP blocks.
@@ -81,7 +82,8 @@ const CALLOUT: [RegExp, CalloutVariant][] = [
 ];
 
 /** "Warning: Don't…" → a warning callout (prefix removed). */
-function paragraph(rt: RichText): BlockNode | null {
+function paragraph(input: RichText): BlockNode | null {
+  const rt = takeFields(input).text; // step details outside a step have nothing to attach to
   const text = plain(rt);
   if (!text.trim()) return null;
   for (const [re, variant] of CALLOUT) {
@@ -101,6 +103,47 @@ function paragraph(rt: RichText): BlockNode | null {
     }
   }
   return node("text", { text: rt });
+}
+
+/** Removes SOP Markdown step-detail tokens from text, returning what they said. */
+function takeFields(rt: RichText): { text: RichText; fields: [StepField, string][] } {
+  const fields: [StepField, string][] = [];
+  const text = rt.map((r) => ({ ...r, text: r.text.replace(FIELD_TOKEN, (_m, k: StepField, v: string) => (fields.push([k, decodeField(v)]), " ")) }));
+  return { text: fields.length ? tidy(text) : rt, fields };
+}
+
+/** Step descriptions keep **bold** and `code`; other formatting becomes plain text. */
+const descriptionOf = (rt: RichText) => rt.map((r) => (r.code ? `\`${r.text}\`` : r.bold && r.text.trim() ? `**${r.text}**` : r.text)).join("");
+
+const GH_ALERT: Record<string, CalloutVariant> = { NOTE: "info", TIP: "info", IMPORTANT: "warning", WARNING: "warning", CAUTION: "warning", DANGER: "danger" };
+
+/** A quote block: GitHub-style "[!WARNING]" alerts and "Warning:" prefixes pick the callout type. */
+function quoteBlock(el: HTMLElement): BlockNode | null {
+  const text = tidy(inline(el));
+  const raw = plain(text);
+  if (!raw) return null;
+  const alert = raw.match(/^\[!(\w+)\]\s*/);
+  if (alert) {
+    const variant = GH_ALERT[alert[1].toUpperCase()] ?? "info";
+    const rest = paragraph(dropChars(text, alert[0].length));
+    return node("callout", { variant, text: rest?.type === "callout" ? rest.content.text : dropChars(text, alert[0].length) });
+  }
+  const b = paragraph(text);
+  return b?.type === "callout" ? b : node("callout", { variant: "info", text });
+}
+
+/** Drops the first n characters of rich text. */
+function dropChars(rt: RichText, n: number): RichText {
+  const rest = [...rt];
+  let left = n;
+  while (left > 0 && rest.length) {
+    if (rest[0].text.length <= left) left -= rest.shift()!.text.length;
+    else {
+      rest[0] = { ...rest[0], text: rest[0].text.slice(left) };
+      left = 0;
+    }
+  }
+  return tidy(rest);
 }
 
 /** Google Docs' HTML export encodes list nesting as classes like "lst-kix_abc-2" rather than nested lists. */
@@ -123,15 +166,32 @@ export function htmlToBlocks(html: string, opts: { restartLists?: boolean } = {}
       let checked: boolean | null = null;
       const checkbox = li.querySelector('input[type="checkbox"]');
       if (checkbox) checked = checkbox.hasAttribute("checked");
+      const fields: [StepField, string][] = [];
+      const media: BlockNode[] = [];
+      const take = (rt: RichText) => {
+        const r = takeFields(rt);
+        fields.push(...r.fields);
+        return r.text;
+      };
       for (const c of li.childNodes) {
         const t = tag(c);
+        if (isEl(c) && t !== "ol" && t !== "ul") for (const img of t === "img" ? [c] : c.querySelectorAll("img")) media.push(imageBlock(img, warnings));
         if (t === "ol" || t === "ul") nested.push(...listItems(c as HTMLElement, t === "ol"));
-        else if (t === "p" && first !== null) extra.push(plain(tidy(inline(c))));
-        else if (t === "p" || c.nodeType === TEXT || (isEl(c) && !["ol", "ul", "input"].includes(t))) {
-          const rt = tidy(inline(c));
+        else if (t === "blockquote") {
+          const b = quoteBlock(c as HTMLElement);
+          if (b) media.push(b);
+        } else if (t === "pre") media.push(codeBlock(c as HTMLElement));
+        else if (t === "table") media.push(tableBlock(c as HTMLElement));
+        else if (t === "img") continue;
+        else if (t === "p" && first !== null) {
+          const rt = take(tidy(inline(c)));
+          if (rt.length) extra.push(descriptionOf(rt));
+        } else if (t === "p" || c.nodeType === TEXT || (isEl(c) && !["ol", "ul", "input"].includes(t))) {
+          const rt = take(tidy(inline(c)));
           if (rt.length) first = first ? tidy([...first, { text: " " }, ...rt]) : rt;
         }
       }
+      nested.unshift(...media.filter((b) => !(b.type === "image" && !b.content.url)));
       let text = first ?? [];
       // Markdown "[ ] task" written without a renderer's checkbox.
       const box = plain(text).match(/^\[( |x)\]\s*/i);
@@ -140,8 +200,29 @@ export function htmlToBlocks(html: string, opts: { restartLists?: boolean } = {}
         text = tidy([{ ...text[0], text: text[0].text.slice(box[0].length) }, ...text.slice(1)]);
       }
       if (checked !== null) out.push(node("checklist", { text, checked }, nested));
-      else if (ordered)
-        out.push(node("step", { title: text, description: extra.join("\n\n").slice(0, 10_000), roleId: null, estDuration: null, expectedResult: "", warning: "", collapsed: false, branches: [] }, nested));
+      else if (ordered || fields.length) {
+        const field = (k: StepField) => fields.filter(([f]) => f === k).map(([, v]) => v);
+        const branches = field("if").map(parseBranch).filter((b) => b !== null).slice(0, 10).map((b) => ({ condition: b.condition, target: `#${b.step}` }));
+        const minutes = field("time").map(parseMinutes).find((m) => m !== null) ?? null;
+        const role = field("role")[0];
+        out.push(
+          node(
+            "step",
+            {
+              title: text,
+              description: extra.join("\n\n").slice(0, 10_000),
+              // Role names are matched to the workspace's roles when the import is previewed.
+              roleId: role ? `name:${role.slice(0, 58)}` : null,
+              estDuration: minutes,
+              expectedResult: field("expected").join("\n").slice(0, 5_000),
+              warning: field("warning").join("\n").slice(0, 5_000),
+              collapsed: false,
+              branches,
+            },
+            nested,
+          ),
+        );
+      }
       else out.push(node("text", { text: [{ text: "• " }, ...text] }, nested));
     }
     return out;
@@ -220,15 +301,12 @@ export function htmlToBlocks(html: string, opts: { restartLists?: boolean } = {}
         blocks.push(...items);
       }
     } else if (t === "table") {
-      const rows = c.querySelectorAll("tr").map((tr) => tr.querySelectorAll("th,td").map((cell) => tidy(inline(cell))));
-      if (rows.length) blocks.push(node("table", { headerRow: Boolean(c.querySelector("th")) || rows.length > 1, rows: rows.slice(0, 500).map((r) => r.slice(0, 30)) }));
+      if (c.querySelector("tr")) blocks.push(tableBlock(c));
     } else if (t === "pre") {
-      const codeEl = c.querySelector("code");
-      const lang = (codeEl?.getAttribute("class") ?? "").match(/language-([\w-]+)/)?.[1] ?? "text";
-      blocks.push(node("code", { language: lang.slice(0, 40), code: (codeEl ?? c).text.replace(/\n$/, "").slice(0, 100_000) }));
+      blocks.push(codeBlock(c));
     } else if (t === "blockquote") {
-      const text = tidy(inline(c));
-      if (plain(text)) blocks.push(node("callout", { variant: "info", text }));
+      const b = quoteBlock(c);
+      if (b) blocks.push(b);
     } else if (t === "hr") {
       blocks.push(node("divider", {}));
     } else if (t === "img") {
@@ -244,11 +322,25 @@ export function htmlToBlocks(html: string, opts: { restartLists?: boolean } = {}
   return { title, blocks: blocks.filter((b) => !(b.type === "image" && !b.content.url)), warnings: [...warnings] };
 }
 
+function tableBlock(c: HTMLElement): BlockNode {
+  const rows = c.querySelectorAll("tr").map((tr) => tr.querySelectorAll("th,td").map((cell) => tidy(inline(cell))));
+  return node("table", { headerRow: Boolean(c.querySelector("th")) || rows.length > 1, rows: rows.slice(0, 500).map((r) => r.slice(0, 30)) });
+}
+
+function codeBlock(c: HTMLElement): BlockNode {
+  const codeEl = c.querySelector("code");
+  const lang = (codeEl?.getAttribute("class") ?? "").match(/language-([\w-]+)/)?.[1] ?? "text";
+  return node("code", { language: lang.slice(0, 40), code: (codeEl ?? c).text.replace(/\n$/, "").slice(0, 100_000) });
+}
+
 function imageBlock(img: HTMLElement, warnings: Set<string>): BlockNode {
   const src = img.getAttribute("src") ?? "";
   if (!/^(https:|data:image\/)/i.test(src)) {
     warnings.add("Some images couldn't be imported (they weren't embedded in the file).");
     return node("image", { url: "", caption: "", width: null, originalUrl: null, annotations: [] });
   }
-  return node("image", { url: src, caption: (img.getAttribute("alt") ?? "").slice(0, 1000), width: null, originalUrl: null, annotations: [] });
+  // SOP Markdown: ![Caption](file.png "width=480"); HTML: <img width="480">.
+  const w = Number((img.getAttribute("title") ?? "").match(/width\s*=\s*(\d+)/i)?.[1] ?? img.getAttribute("width") ?? NaN);
+  const width = Number.isFinite(w) && w >= 40 ? Math.min(4_000, Math.round(w)) : null;
+  return node("image", { url: src, caption: (img.getAttribute("alt") ?? "").slice(0, 1000), width, originalUrl: null, annotations: [] });
 }

@@ -76,3 +76,45 @@ describe("Markdown lists that start at 1 again", () => {
     expect(r.blocks.filter((b) => b.type === "step").map((b) => n.get(b.id))).toEqual(["1", "2", "1", "2", "3"]);
   });
 });
+
+describe("SOP Markdown", () => {
+  it("imports the format guide with step details, sub-steps, branches, callouts and restarts", async () => {
+    const guide = readFileSync(path.join(__dirname, "../../public/sop-markdown-guide.md"));
+    const r = await parseImport("sop-markdown-guide.md", new Uint8Array(guide));
+    expect(r.title).toBe("SOP Markdown Format Guide");
+    expect(r.meta).toMatchObject({ summary: expect.stringContaining("imports with its steps"), tags: ["import", "guide"] });
+    const steps = [...walk(r.blocks)].map((x) => x.node).filter((n) => n.type === "step");
+    const n = numberSteps(r.blocks);
+    const first = steps[0];
+    expect(plain(first.content.title)).toBe("Write each step as a numbered list item");
+    expect(first.content).toMatchObject({ roleId: "name:Technical Director", estDuration: 2, expectedResult: "The step shows its role, time and expected result." });
+    expect(first.content.description).toContain("**bold** and `code`");
+    expect(steps[1].content.warning).toContain("own warning");
+    expect(steps.map((s) => n.get(s.id))).toEqual(["1", "2", "3", "3.1", "3.2", "4", "5", "6", "1", "2"]);
+    const branch = steps.find((s) => s.content.branches.length)!;
+    expect(branch.content.branches[0]).toEqual({ condition: "The projector doesn't turn on", target: steps[7].key });
+    const kinds = r.blocks.filter((b) => b.type === "callout").map((b) => b.content.variant);
+    expect(kinds).toEqual(["info", "warning", "danger", "warning"]);
+    // The image is in a zip only, so a .md on its own warns about it.
+    expect(r.warnings.join(" ")).toMatch(/\.zip/);
+    expect(JSON.stringify(r.blocks)).not.toContain("⟦");
+  });
+
+  it("imports a .zip package with its images, sizes and captions", async () => {
+    const { zipSync } = await import("fflate");
+    const png = new Uint8Array(readFileSync(path.join(__dirname, "../fixtures/two-tone.png")));
+    const md = "# Rack\n\n1. Check the rack\n   - time: 90 seconds\n\n   ![Front of the rack](images/rack.png \"width=360\")\n\n![Wide shot](./images/rack.png)\n";
+    const zip = zipSync({ "rack-sop/rack.md": new TextEncoder().encode(md), "rack-sop/images/rack.png": png });
+    const r = await parseImport("rack-sop.zip", zip);
+    expect(r.title).toBe("Rack");
+    const step = r.blocks.find((b) => b.type === "step")!;
+    expect(step.content).toMatchObject({ estDuration: 2 });
+    const img = step.children.find((c) => c.type === "image")!;
+    expect(img.content).toMatchObject({ caption: "Front of the rack", width: 360 });
+    expect(img.content.url).toMatch(/^data:image\/png;base64,/);
+    expect(r.blocks.find((b) => b.type === "image")?.content).toMatchObject({ caption: "Wide shot", width: null });
+    expect(r.warnings).toEqual([]);
+    const done = await finalizeImport(r.blocks, async () => "/files/rack.png");
+    expect(JSON.stringify(done.blocks)).toContain("/files/rack.png");
+  });
+});

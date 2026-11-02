@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
 
-type Preview = { title: string; blocks: BlockNode[]; warnings: string[]; fileName: string };
+type Preview = { title: string; summary: string; tags: string[]; folderId: string | null; blocks: BlockNode[]; warnings: string[]; fileName: string };
 const ACCEPT = ".docx,.md,.markdown,.txt,.html,.htm,.zip";
 
 export function ImportForm({ folders, roles }: { folders: { id: string; label: string }[]; roles: Record<string, string> }) {
@@ -19,6 +19,8 @@ export function ImportForm({ folders, roles }: { folders: { id: string; label: s
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [title, setTitle] = useState("");
+  const [summary, setSummary] = useState("");
+  const [tags, setTags] = useState("");
   const [folderId, setFolderId] = useState(folders[0]?.id ?? "");
   const [pending, start] = useTransition();
   const input = useRef<HTMLInputElement>(null);
@@ -34,6 +36,9 @@ export function ImportForm({ folders, roles }: { folders: { id: string; label: s
     if (!r.ok) return setError(j.error);
     setPreview(j);
     setTitle(j.title);
+    setSummary(j.summary ?? "");
+    setTags((j.tags ?? []).join(", "));
+    if (j.folderId) setFolderId(j.folderId);
   };
 
   if (!preview)
@@ -57,7 +62,7 @@ export function ImportForm({ folders, roles }: { folders: { id: string; label: s
         >
           <FileUp className="size-6 text-muted" />
           <span className="text-[15px] font-[510] text-fg-hi">{busy ? "Converting…" : "Drop a document here, or choose a file"}</span>
-          <span className="text-[13px] text-muted">.docx, Markdown (.md), HTML, or a Google Docs web-page export (.zip)</span>
+          <span className="text-[13px] text-muted">.docx, Markdown (.md), an SOP package (.zip of Markdown and images), HTML, or a Google Docs web-page export (.zip)</span>
         </button>
         <input ref={input} type="file" accept={ACCEPT} hidden onChange={(e) => e.target.files?.[0] && void upload(e.target.files[0])} />
         {error && (
@@ -66,6 +71,13 @@ export function ImportForm({ folders, roles }: { folders: { id: string; label: s
           </p>
         )}
         <p className="text-[13px] text-muted">From Google Docs: File → Download → Microsoft Word (.docx). Word styles “Heading 1/2/3” become sections; paragraphs starting “Warning:”, “Danger:” or “Note:” become callouts.</p>
+        <p className="text-[13px] text-muted">
+          For the most faithful import, use SOP Markdown: steps keep their role, time, expected result, warning and “go to step” rules, and images keep their size and caption when you zip them with the file.{" "}
+          <a href="/sop-markdown-guide.md" download className="text-fg-hi underline underline-offset-2">
+            Download the format guide
+          </a>
+          , which is itself an example you can import.
+        </p>
       </div>
     );
 
@@ -78,7 +90,14 @@ export function ImportForm({ folders, roles }: { folders: { id: string; label: s
           e.preventDefault();
           setError(null);
           start(async () => {
-            const res = await createFromImportAction({ title, folderId, blocks: preview.blocks, fileName: preview.fileName });
+            const res = await createFromImportAction({
+              title,
+              folderId,
+              summary,
+              tags: tags.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 20),
+              blocks: preview.blocks,
+              fileName: preview.fileName,
+            });
             if (res && !res.ok) setError(res.error);
           });
         }}
@@ -93,6 +112,12 @@ export function ImportForm({ folders, roles }: { folders: { id: string; label: s
         ))}
         <Field label="Title" htmlFor="title">
           <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={200} />
+        </Field>
+        <Field label="Summary" htmlFor="summary">
+          <Input id="summary" value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={1000} />
+        </Field>
+        <Field label="Tags" htmlFor="tags" hint="Comma separated">
+          <Input id="tags" value={tags} onChange={(e) => setTags(e.target.value)} />
         </Field>
         <Field label="Folder" htmlFor="folder">
           <Select id="folder" value={folderId} onChange={(e) => setFolderId(e.target.value)}>
