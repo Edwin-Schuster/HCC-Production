@@ -5,7 +5,8 @@ test("library lists the seeded SOPs and the reading view numbers steps", async (
   await signIn(page);
   await expect(page.getByRole("link", { name: /Sunday System Startup/ }).first()).toBeVisible();
   await openSop(page, "Sunday System Startup");
-  await expect(page.getByText("v2", { exact: false }).first()).toBeVisible();
+  // The document-control box (code, version, owner, dates) is for printed copies only.
+  await expect(page.getByText("Next review")).toBeHidden();
   await expect(page.locator(".sop-step").first()).toContainText("Unlock the booth");
   // Sub-steps of step 3 are numbered 3.1 and 3.2.
   await expect(page.locator(".sop-step", { hasText: "Load the show file" }).first()).toContainText("3.1");

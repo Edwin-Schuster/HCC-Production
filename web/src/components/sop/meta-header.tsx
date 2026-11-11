@@ -4,7 +4,11 @@ import { LocalDate } from "@/components/local-date";
 import { ReviewBadge, StatusBadge } from "./status";
 import { formatMinutes } from "@/blocks/tree";
 
-/** Title block + metadata grid. Shared by the reading view and the PDF so they match. */
+/**
+ * Title block. Shared by the reading view and the PDF so they match. The document-control grid (code,
+ * version, owner, dates, status) is for printed copies and PDFs only; on screen, only a review that needs
+ * doing and the total time are shown, next to the folder.
+ */
 export function MetaHeader({ doc, totalMinutes, actions, print }: { doc: SopDocument; totalMinutes: number; actions?: ReactNode; print?: boolean }) {
   const { sop, version } = doc;
   const status = version.isDraft ? "draft" : sop.status;
@@ -42,6 +46,13 @@ export function MetaHeader({ doc, totalMinutes, actions, print }: { doc: SopDocu
             {t}
           </span>
         ))}
+        {!print && totalMinutes > 0 && (
+          <span className="print:hidden">
+            <span aria-hidden>· </span>
+            {formatMinutes(totalMinutes)}
+          </span>
+        )}
+        {!print && !version.isDraft && <ReviewBadge state={sop.reviewState} className="print:hidden" />}
       </div>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <h1 className={print ? "text-[28px] font-[510] leading-[1.15] tracking-[-0.022em] text-fg-hi" : "text-[28px] font-[510] leading-[1.13] tracking-[-0.022em] text-fg-hi sm:text-[34px]"}>
@@ -50,7 +61,7 @@ export function MetaHeader({ doc, totalMinutes, actions, print }: { doc: SopDocu
         {actions && <div className="flex shrink-0 flex-wrap items-center gap-1.5 print:hidden">{actions}</div>}
       </div>
       {version.summary && <p className="mt-3 max-w-[62ch] text-[16px] leading-relaxed text-muted">{version.summary}</p>}
-      <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 rounded-[12px] border border-line bg-surface px-4 py-3.5 sm:grid-cols-3 lg:grid-cols-4 print:grid-cols-4">
+      <dl className={`mt-5 grid-cols-4 gap-x-6 gap-y-3 rounded-[12px] border border-line bg-surface px-4 py-3.5 ${print ? "grid" : "hidden print:grid"}`}>
         {items.map(([k, v]) => (
           <div key={k} className="min-w-0">
             <dt className="text-xs text-muted">{k}</dt>
