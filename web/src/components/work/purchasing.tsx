@@ -1,6 +1,6 @@
 "use client";
 
-import { PackageCheck, Paperclip, Plus, Trash2, X } from "lucide-react";
+import { Download, ExternalLink, PackageCheck, Paperclip, Plus, Trash2, X } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { deleteBomAction, deletePoAction, receivePoAction, saveBomAction, savePoAction } from "@/app/actions/projects";
@@ -11,7 +11,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import type { Attachment } from "@/db/schema";
 import { formatDay, formatMoney } from "@/lib/format";
 import { BOM_STATUSES, BOM_STATUS_LABEL, BUDGET_CATEGORIES, PO_STATUSES, PO_STATUS_LABEL, type BomStatus, type PoStatus } from "@/lib/purchasing";
-import { slug } from "@/lib/csv";
+import { downloadCsv, slug } from "@/lib/csv";
 import type { BomItem, PurchaseOrder } from "@/server/services/purchasing";
 import { DataTable } from "./data-table";
 import { AttachmentList, uploadAttachment } from "./task-drawer";
@@ -33,35 +33,139 @@ function Categories() {
   );
 }
 
-export function BomSection({ projectId, projectName, items }: { projectId: string; projectName: string; items: BomItem[] }) {
+/** A vendor's name from its web address, for links pasted without one. */
+export function vendorFromUrl(url: string): string {
+  const host = url.match(/^https?:\/\/(?:www\.|smile\.)?([^/]+)/i)?.[1]?.toLowerCase() ?? "";
+  const known: Record<string, string> = { "bhphotovideo.com": "B&H", "fullcompass.com": "Full Compass", "sweetwater.com": "Sweetwater", "amazon.com": "Amazon", "a.co": "Amazon", "bestbuy.com": "Best Buy", "ebay.com": "eBay", "adorama.com": "Adorama", "monoprice.com": "Monoprice", "cdw.com": "CDW" };
+  return known[host] ?? (host ? host.replace(/\.(com|net|org|co|us)$/, "") : "");
+}
+
+type Group = { key: string; title: string; items: BomItem[]; sections: { title: string; items: BomItem[] }[] };
+
+/** Items by category (in the order given, then the rest), then by section in the order they were added. */
+function groupBom(items: BomItem[], order: string[]): Group[] {
+  const groups = new Map<string, Group>();
+  for (const it of items) {
+    const key = it.category.toLowerCase();
+    if (!groups.has(key)) groups.set(key, { key, title: it.category, items: [], sections: [] });
+    const g = groups.get(key)!;
+    g.items.push(it);
+    let sec = g.sections.find((x) => x.title === it.section);
+    if (!sec) g.sections.push((sec = { title: it.section, items: [] }));
+    sec.items.push(it);
+  }
+  const rank = (k: string) => {
+    const i = order.findIndex((o) => o.toLowerCase() === k);
+    return i < 0 ? Infinity : i;
+  };
+  return [...groups.values()].sort((a, b) => rank(a.key) - rank(b.key) || a.title.localeCompare(b.title));
+}
+
+const totalOf = (items: BomItem[]) => items.reduce((s, x) => s + Math.round(x.qty * x.unitCostCents), 0);
+
+export function BomSection({ projectId, projectName, items, order = [] }: { projectId: string; projectName: string; items: BomItem[]; order?: string[] }) {
   const [editing, setEditing] = useState<BomItem | "new" | null>(null);
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState<BomStatus | "">("");
+  const query = q.trim().toLowerCase();
+  const shown = items.filter((x) => (!status || x.status === status) && (!query || `${x.item} ${x.partNumber} ${x.vendor} ${x.category} ${x.section}`.toLowerCase().includes(query)));
+  const groups = groupBom(shown, order);
   return (
     <section aria-labelledby="bom-h">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 id="bom-h" className="text-[15px] font-[510]">
-          Bill of materials
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <h2 id="bom-h" className="mr-auto text-[15px] font-[510]">
+          Bill of materials <span className="font-normal text-muted">· {items.length} items · {money(totalOf(items))}</span>
         </h2>
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter items" aria-label="Filter items" className="h-8 w-44" />
+        <Select value={status} onChange={(e) => setStatus(e.target.value as BomStatus | "")} aria-label="Status" className="h-8 w-auto text-[13px]">
+          <option value="">Any status</option>
+          {BOM_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {BOM_STATUS_LABEL[s]}
+            </option>
+          ))}
+        </Select>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() =>
+            downloadCsv(`bom-${slug(projectName)}`, [
+              ["Category", "Section", "Item", "Part #", "Vendor", "Qty", "Unit", "Total", "Status", "Link"],
+              ...shown.map((x) => [x.category, x.section, x.item, x.partNumber, x.vendor, x.qty, x.unitCostCents / 100, Math.round(x.qty * x.unitCostCents) / 100, BOM_STATUS_LABEL[x.status], x.url]),
+            ])
+          }
+        >
+          <Download /> CSV
+        </Button>
         <Button size="sm" variant="primary" onClick={() => setEditing("new")}>
           <Plus /> Item
         </Button>
       </div>
-      <DataTable
-        label="Bill of materials"
-        rows={items}
-        onRow={setEditing}
-        csv={`bom-${slug(projectName)}`}
-        empty="Add the parts this project needs to see what it will cost."
-        columns={[
-          { key: "item", label: "Item" },
-          { key: "partNumber", label: "Part #", render: (x) => <span className="font-mono text-xs">{x.partNumber}</span> },
-          { key: "vendor", label: "Vendor", className: "max-md:hidden" },
-          { key: "category", label: "Category" },
-          { key: "qty", label: "Qty", align: "right", render: (x) => x.qty.toLocaleString("en-US") },
-          { key: "unit", label: "Unit", align: "right", value: (x) => x.unitCostCents / 100, render: (x) => <span className="font-mono text-xs">{money(x.unitCostCents)}</span> },
-          { key: "total", label: "Total", align: "right", value: (x) => Math.round(x.qty * x.unitCostCents) / 100, render: (x) => <b className="font-mono text-xs font-[510] text-fg-hi">{money(Math.round(x.qty * x.unitCostCents))}</b> },
-          { key: "status", label: "Status", value: (x) => BOM_STATUS_LABEL[x.status], render: (x) => <BomStatusBadge status={x.status} /> },
-        ]}
-      />
+      {!items.length ? (
+        <p className="rounded-[12px] border border-dashed border-line px-6 py-10 text-center text-[13px] text-muted">Add the parts this project needs to see what it will cost.</p>
+      ) : !groups.length ? (
+        <p className="rounded-[12px] border border-line bg-surface px-6 py-8 text-center text-[13px] text-muted">No items match.</p>
+      ) : (
+        <div className="grid gap-4">
+          {groups.map((g) => (
+            <div key={g.key} className="overflow-x-auto rounded-[12px] border border-line bg-surface" data-testid="bom-group">
+              <div className="flex items-baseline justify-between gap-3 border-b border-line px-3 py-2.5">
+                <h3 className="text-[14px] font-[510] text-fg-hi">{g.title}</h3>
+                <span className="font-mono text-xs text-fg-2">{money(totalOf(g.items))}</span>
+              </div>
+              <table className="w-full min-w-[640px] text-[13px]">
+                <thead>
+                  <tr className="text-left text-xs text-muted">
+                    <th className="px-3 py-1.5 font-normal">Item</th>
+                    <th className="px-3 py-1.5 font-normal max-md:hidden">Vendor</th>
+                    <th className="px-3 py-1.5 text-right font-normal">Qty</th>
+                    <th className="px-3 py-1.5 text-right font-normal">Unit</th>
+                    <th className="px-3 py-1.5 text-right font-normal">Total</th>
+                    <th className="px-3 py-1.5 font-normal">Status</th>
+                  </tr>
+                </thead>
+                {g.sections.map((sec) => (
+                  <tbody key={sec.title || "-"}>
+                    {sec.title && (
+                      <tr className="border-t border-line bg-wash-2">
+                        <th colSpan={4} scope="rowgroup" className="px-3 py-1.5 text-left text-xs font-[510] text-fg-2">
+                          {sec.title}
+                        </th>
+                        <td className="px-3 py-1.5 text-right font-mono text-xs text-muted">{money(totalOf(sec.items))}</td>
+                        <td />
+                      </tr>
+                    )}
+                    {sec.items.map((x) => (
+                      <tr key={x.id} className="cursor-pointer border-t border-line hover:bg-wash-2" onClick={() => setEditing(x)}>
+                        <td className="px-3 py-2">
+                          <span className="flex items-center gap-1.5">
+                            <button type="button" className="text-left text-fg-hi" onClick={() => setEditing(x)}>
+                              {x.item}
+                            </button>
+                            {x.url && (
+                              <a href={x.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label={`Open ${x.vendor || "vendor"} page for ${x.item}`} className="text-muted hover:text-fg-hi">
+                                <ExternalLink className="size-3.5" />
+                              </a>
+                            )}
+                          </span>
+                          {x.partNumber && <span className="block font-mono text-xs text-faint">{x.partNumber}</span>}
+                        </td>
+                        <td className="px-3 py-2 text-fg-2 max-md:hidden">{x.vendor}</td>
+                        <td className="px-3 py-2 text-right font-mono text-xs">{x.qty.toLocaleString("en-US")}</td>
+                        <td className="px-3 py-2 text-right font-mono text-xs">{money(x.unitCostCents)}</td>
+                        <td className="px-3 py-2 text-right font-mono text-xs font-[510] text-fg-hi">{money(Math.round(x.qty * x.unitCostCents))}</td>
+                        <td className="px-3 py-2">
+                          <BomStatusBadge status={x.status} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                ))}
+              </table>
+            </div>
+          ))}
+        </div>
+      )}
       <BomDialog key={editing === "new" ? "new" : editing?.id} projectId={projectId} item={editing} onClose={() => setEditing(null)} />
     </section>
   );
@@ -80,7 +184,8 @@ function BomDialog({ projectId, item, onClose }: { projectId: string; item: BomI
             const fd = new FormData(e.currentTarget);
             const s = (k: string) => String(fd.get(k) ?? "");
             start(async () => {
-              const res = await saveBomAction(projectId, { item: s("item"), partNumber: s("partNumber"), vendor: s("vendor"), category: s("category") || "Other", qty: Number(s("qty") || 0), unitCost: Number(s("unitCost") || 0), status: s("status") as BomStatus }, current?.id);
+              const url = s("url").trim();
+              const res = await saveBomAction(projectId, { item: s("item"), partNumber: s("partNumber"), vendor: s("vendor") || vendorFromUrl(url), category: s("category") || "Other", section: s("section"), url, qty: Number(s("qty") || 0), unitCost: Number(s("unitCost") || 0), status: s("status") as BomStatus }, current?.id);
               if (!res.ok) return void toast.error(res.error);
               onClose();
             });
@@ -100,6 +205,9 @@ function BomDialog({ projectId, item, onClose }: { projectId: string; item: BomI
               <Input id="bom-cat" name="category" list="budget-categories" defaultValue={current?.category ?? "Audio"} />
               <Categories />
             </Field>
+            <Field label="Section" htmlFor="bom-section">
+              <Input id="bom-section" name="section" defaultValue={current?.section} placeholder="Front Stage Lighting" />
+            </Field>
             <Field label="Status" htmlFor="bom-status">
               <Select id="bom-status" name="status" defaultValue={current?.status ?? "needed"}>
                 {BOM_STATUSES.map((s) => (
@@ -116,6 +224,9 @@ function BomDialog({ projectId, item, onClose }: { projectId: string; item: BomI
               <Input id="bom-cost" name="unitCost" type="number" min={0} step="0.01" inputMode="decimal" defaultValue={current ? current.unitCostCents / 100 : ""} />
             </Field>
           </div>
+          <Field label="Link" htmlFor="bom-url" hint="Where to buy it. The vendor is filled in from the link when it's empty.">
+            <Input id="bom-url" name="url" type="url" defaultValue={current?.url} placeholder="https://" />
+          </Field>
           <div className="flex items-center gap-2">
             {current && (
               <Button

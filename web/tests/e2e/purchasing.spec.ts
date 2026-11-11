@@ -10,11 +10,11 @@ test("plan a part, order it, receive it, and watch the budget move", async ({ pa
 
   await page.getByRole("button", { name: "Item", exact: true }).click();
   await page.getByLabel("Item", { exact: true }).fill("Laser projector");
-  await page.getByLabel("Category").fill("Video");
+  await page.getByRole("dialog").getByLabel("Category", { exact: true }).fill("Video");
   await page.getByLabel("Quantity").fill("1");
   await page.getByLabel("Unit cost ($)").fill("5200");
   await page.getByRole("button", { name: "Add item" }).click();
-  const bom = page.getByRole("table", { name: "Bill of materials" });
+  const bom = page.getByRole("region", { name: /Bill of materials/ });
   await expect(bom.getByRole("row", { name: /Laser projector/ })).toContainText("Needed");
 
   await page.getByRole("button", { name: "Purchase order", exact: true }).click();

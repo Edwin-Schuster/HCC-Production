@@ -3,10 +3,11 @@ import { Suspense } from "react";
 import { getDb } from "@/db";
 import { requireRole } from "@/server/context";
 import { loadProject } from "@/server/services/projects";
-import { listBom, listPurchaseOrders, nextPoNumber, projectBudget } from "@/server/services/purchasing";
+import { listBom, listBudgetLines, listPurchaseOrders, nextPoNumber, projectBudget } from "@/server/services/purchasing";
 import { Stat } from "@/components/work/overview";
 import { BomSection, PurchaseOrders } from "@/components/work/purchasing";
 import { BudgetSheet } from "@/components/work/budget-sheet";
+import { BudgetByCategory } from "@/components/work/budget-lines";
 import { formatMoney } from "@/lib/format";
 import { slug } from "@/lib/csv";
 import { cn } from "@/lib/utils";
@@ -28,14 +29,14 @@ async function Content({ params }: { params: PageProps<"/projects/[id]/budget">[
   const actor = await requireRole("editor", `/projects/${id}/budget`);
   const db = await getDb();
   const project = await loadProject(db, actor, id);
-  const [b, bom, orders, next] = await Promise.all([projectBudget(db, actor, id), listBom(db, actor, id), listPurchaseOrders(db, actor, id), nextPoNumber(db, actor)]);
+  const [b, bom, orders, next, lines] = await Promise.all([projectBudget(db, actor, id), listBom(db, actor, id), listPurchaseOrders(db, actor, id), nextPoNumber(db, actor), listBudgetLines(db, actor, id)]);
   const spentPct = Math.min(100, pct(b.spent, b.budget));
   const committedPct = Math.max(0, Math.min(100, pct(b.committed, b.budget)) - spentPct);
   return (
     <div className="grid grid-cols-1 gap-8">
       <div className="grid gap-3">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <Stat label="Budget" value={formatMoney(b.budget)} sub="Change it with Edit, above" />
+          <Stat label="Budget" value={formatMoney(b.budget)} sub={lines.length ? "The total of the budget lines below" : "Change it with Edit, above"} />
           <Stat label="Planned (BOM)" value={formatMoney(b.planned)} sub={b.budget ? `${Math.round(pct(b.planned, b.budget))}% of budget` : undefined} pct={b.budget ? pct(b.planned, b.budget) : undefined} />
           <Stat label="Committed" value={formatMoney(b.committed)} sub="Purchase orders and signed scopes of work" pct={b.budget ? pct(b.committed, b.budget) : undefined} tone={b.committed > b.budget && b.budget ? "bad" : undefined} />
           <Stat label="Spent" value={formatMoney(b.spent)} sub="Goods received and invoices paid" pct={b.budget ? pct(b.spent, b.budget) : undefined} />
@@ -64,37 +65,9 @@ async function Content({ params }: { params: PageProps<"/projects/[id]/budget">[
 
       <BudgetSheet key={project.budgetSheetUrl ?? "none"} projectId={id} url={project.budgetSheetUrl} />
 
-      {b.byCategory.length > 0 && (
-        <section aria-labelledby="cat-h">
-          <h2 id="cat-h" className="mb-2 text-[15px] font-[510]">
-            By category
-          </h2>
-          <div className="overflow-x-auto rounded-[12px] border border-line bg-surface">
-            <table className="w-full min-w-[420px] text-[13px]">
-              <thead>
-                <tr className="border-b border-line text-left text-xs text-muted">
-                  <th className="px-3 py-2 font-normal">Category</th>
-                  <th className="px-3 py-2 text-right font-normal">Planned</th>
-                  <th className="px-3 py-2 text-right font-normal">Committed</th>
-                  <th className="px-3 py-2 text-right font-normal">Spent</th>
-                </tr>
-              </thead>
-              <tbody className="font-mono text-xs">
-                {b.byCategory.map((c) => (
-                  <tr key={c.category} className="border-b border-line last:border-0">
-                    <td className="px-3 py-2 font-sans text-[13px] text-fg-hi">{c.category}</td>
-                    <td className="px-3 py-2 text-right">{formatMoney(c.planned)}</td>
-                    <td className={cn("px-3 py-2 text-right", c.planned && c.committed > c.planned && "text-warn")}>{formatMoney(c.committed)}</td>
-                    <td className="px-3 py-2 text-right">{formatMoney(c.spent)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
+      <BudgetByCategory projectId={id} rows={b.byCategory} lines={lines} />
 
-      <BomSection projectId={id} projectName={project.name} items={bom} />
+      <BomSection projectId={id} projectName={project.name} items={bom} order={lines.map((l) => l.category)} />
       <PurchaseOrders orders={orders} projectId={id} bom={bom} nextNumber={next} csvName={`purchase-orders-${slug(project.name)}`} />
     </div>
   );

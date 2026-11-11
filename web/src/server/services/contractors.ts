@@ -127,7 +127,7 @@ export async function deleteContractor(db: Executor, actor: Actor, id: string) {
 
 // ---------- Scopes of work ----------
 
-export type Scope = { id: string; contractorId: string; company: string; projectId: string | null; projectName: string | null; title: string; status: SowStatus; valueCents: number; start: string | null; end: string | null; body: string; attachments: Attachment[] };
+export type Scope = { id: string; contractorId: string; company: string; projectId: string | null; projectName: string | null; title: string; status: SowStatus; category: string; valueCents: number; start: string | null; end: string | null; body: string; attachments: Attachment[] };
 
 export const ScopeInput = z
   .object({
@@ -135,6 +135,8 @@ export const ScopeInput = z
     projectId: z.string().max(64).nullable().default(null),
     title: z.string().trim().min(1, "Give the scope a title").max(200),
     status: z.enum(SOW_STATUSES).default("draft"),
+    /** The project budget category this work is paid from. */
+    category: z.string().trim().max(60).transform((c) => c || "Labor").default("Labor"),
     /** Dollars. */
     value: Money.default(0),
     start: Day.nullable().default(null),
@@ -153,10 +155,10 @@ export async function listScopes(db: Executor, actor: Actor, where: { contractor
     .leftJoin(projects, eq(projects.id, scopesOfWork.projectId))
     .where(and(eq(scopesOfWork.workspaceId, actor.workspaceId), where.contractorId ? eq(scopesOfWork.contractorId, where.contractorId) : undefined, where.projectId ? eq(scopesOfWork.projectId, where.projectId) : undefined))
     .orderBy(asc(scopesOfWork.start), asc(scopesOfWork.title));
-  return rows.map(({ s, company, projectName }) => ({ id: s.id, contractorId: s.contractorId, company, projectId: s.projectId, projectName, title: s.title, status: pick(SOW_STATUSES, s.status, "draft"), valueCents: s.valueCents, start: s.start, end: s.end, body: s.body, attachments: s.attachments }));
+  return rows.map(({ s, company, projectName }) => ({ id: s.id, contractorId: s.contractorId, company, projectId: s.projectId, projectName, title: s.title, status: pick(SOW_STATUSES, s.status, "draft"), category: s.category, valueCents: s.valueCents, start: s.start, end: s.end, body: s.body, attachments: s.attachments }));
 }
 
-const SOW_LABELS = { title: "title", status: "status", valueCents: "value", start: "start date", end: "end date", body: "description" };
+const SOW_LABELS = { title: "title", status: "status", category: "budget category", valueCents: "value", start: "start date", end: "end date", body: "description" };
 
 export async function saveScope(db: Executor, actor: Actor, input: z.input<typeof ScopeInput>, id?: string) {
   requireEditor(actor, "contractors");
@@ -300,7 +302,7 @@ export async function deletePunch(db: Executor, actor: Actor, id: string) {
 
 // ---------- Invoices ----------
 
-export type Invoice = { id: string; contractorId: string | null; company: string | null; projectId: string | null; projectName: string | null; number: string; date: string | null; dueDate: string | null; amountCents: number; status: InvoiceStatus; notes: string; attachments: Attachment[] };
+export type Invoice = { id: string; contractorId: string | null; company: string | null; projectId: string | null; projectName: string | null; number: string; date: string | null; dueDate: string | null; category: string; amountCents: number; status: InvoiceStatus; notes: string; attachments: Attachment[] };
 
 export const InvoiceInput = z.object({
   contractorId: z.string().min(1, "Pick the contractor").max(64),
@@ -308,6 +310,8 @@ export const InvoiceInput = z.object({
   number: text(60),
   date: Day.nullable().default(null),
   dueDate: Day.nullable().default(null),
+  /** The project budget category this invoice is paid from. */
+  category: z.string().trim().max(60).transform((c) => c || "Labor").default("Labor"),
   /** Dollars. */
   amount: Money.default(0),
   status: z.enum(INVOICE_STATUSES).default("received"),
@@ -324,10 +328,10 @@ export async function listInvoices(db: Executor, actor: Actor, where: { contract
     .leftJoin(projects, eq(projects.id, invoices.projectId))
     .where(and(eq(invoices.workspaceId, actor.workspaceId), where.contractorId ? eq(invoices.contractorId, where.contractorId) : undefined, where.projectId ? eq(invoices.projectId, where.projectId) : undefined))
     .orderBy(desc(invoices.date), desc(invoices.createdAt));
-  return rows.map(({ i, company, projectName }) => ({ id: i.id, contractorId: i.contractorId, company, projectId: i.projectId, projectName, number: i.number, date: i.date, dueDate: i.dueDate, amountCents: i.amountCents, status: pick(INVOICE_STATUSES, i.status, "received"), notes: i.notes, attachments: i.attachments }));
+  return rows.map(({ i, company, projectName }) => ({ id: i.id, contractorId: i.contractorId, company, projectId: i.projectId, projectName, number: i.number, date: i.date, dueDate: i.dueDate, category: i.category, amountCents: i.amountCents, status: pick(INVOICE_STATUSES, i.status, "received"), notes: i.notes, attachments: i.attachments }));
 }
 
-const INVOICE_LABELS = { number: "number", amountCents: "amount", status: "status", dueDate: "due date" };
+const INVOICE_LABELS = { number: "number", category: "budget category", amountCents: "amount", status: "status", dueDate: "due date" };
 
 export async function saveInvoice(db: Executor, actor: Actor, input: z.input<typeof InvoiceInput>, id?: string) {
   requireEditor(actor, "invoices");

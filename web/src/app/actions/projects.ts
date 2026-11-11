@@ -7,8 +7,9 @@ import { createProject, deleteProject, setBudgetSheet, updateProject, type Proje
 import { commentOnTask, createTask, deleteTask, deleteWorkComment, moveTask, updateTask, type TaskInput, type TaskPatch } from "@/server/services/tasks";
 import type { TaskStatus } from "@/lib/work";
 import { createCable, createLayout, deleteCable, deleteLayout, importCables, saveLayout, updateCable, type CableInput, type ImportCablesInput, type LayoutInput } from "@/server/services/cabling";
-import { createBomItem, createPurchaseOrder, deleteBomItem, deletePurchaseOrder, receivePurchaseOrder, updateBomItem, updatePurchaseOrder, type BomInput, type PoInput, type ReceiveInput } from "@/server/services/purchasing";
+import { createBomItem, createPurchaseOrder, deleteBomItem, deletePurchaseOrder, receivePurchaseOrder, updateBomItem, updatePurchaseOrder, type BomInput, type PoInput, type ReceiveInput, saveBudgetLine, deleteBudgetLine, type BudgetLineInput } from "@/server/services/purchasing";
 import { addPhotos, deletePhoto, updatePhoto, type PhotoEdit, type PhotoInput } from "@/server/services/photos";
+import { deletePort, importPorts, renameSwitch, savePort, type ImportPortsInput, type PortInput } from "@/server/services/network";
 import { run } from "./run";
 
 const Id = z.string().min(1).max(64);
@@ -56,6 +57,9 @@ export async function deleteLayoutAction(id: string, projectId: string) {
 
 export const saveBomAction = async (projectId: string, input: z.input<typeof BomInput>, id?: string) =>
   done(await run(async (db, actor) => void (id ? await updateBomItem(db, actor, Id.parse(id), input) : await createBomItem(db, actor, Id.parse(projectId), input))));
+export const saveBudgetLineAction = async (projectId: string, input: z.input<typeof BudgetLineInput>, id?: string) =>
+  done(await run((db, actor) => saveBudgetLine(db, actor, Id.parse(projectId), input, id ? Id.parse(id) : undefined)));
+export const deleteBudgetLineAction = async (id: string) => done(await run((db, actor) => deleteBudgetLine(db, actor, Id.parse(id))));
 export const deleteBomAction = async (id: string) => done(await run((db, actor) => deleteBomItem(db, actor, Id.parse(id))));
 export const savePoAction = async (projectId: string, input: z.input<typeof PoInput>, id?: string) =>
   done(await run(async (db, actor) => void (id ? await updatePurchaseOrder(db, actor, Id.parse(id), input) : await createPurchaseOrder(db, actor, Id.parse(projectId), input))));
@@ -65,3 +69,8 @@ export const deletePoAction = async (id: string) => done(await run((db, actor) =
 export const addPhotosAction = async (projectId: string, input: z.input<typeof PhotoInput>) => done(await run((db, actor) => addPhotos(db, actor, Id.parse(projectId), input)));
 export const updatePhotoAction = async (id: string, input: z.input<typeof PhotoEdit>) => done(await run((db, actor) => updatePhoto(db, actor, Id.parse(id), input)));
 export const deletePhotoAction = async (id: string) => done(await run((db, actor) => deletePhoto(db, actor, Id.parse(id))));
+
+export const savePortAction = async (projectId: string, input: z.input<typeof PortInput>, id?: string) => done(await run(async (db, actor) => void (await savePort(db, actor, Id.parse(projectId), input, id ? Id.parse(id) : undefined))));
+export const deletePortAction = async (id: string) => done(await run((db, actor) => deletePort(db, actor, Id.parse(id))));
+export const renameSwitchAction = async (projectId: string, from: string, to: string) => done(await run((db, actor) => renameSwitch(db, actor, Id.parse(projectId), z.string().max(80).parse(from), to)));
+export const importPortsAction = async (projectId: string, rows: z.input<typeof ImportPortsInput>) => done(await run((db, actor) => importPorts(db, actor, Id.parse(projectId), rows)));

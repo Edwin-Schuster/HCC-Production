@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PUNCH_STATUSES, PUNCH_STATUS_LABEL, type PunchStatus } from "@/lib/contractors";
 import { formatDay, formatMoney } from "@/lib/format";
-import { INVOICE_STATUSES, INVOICE_STATUS_LABEL, SOW_STATUSES, SOW_STATUS_LABEL, type InvoiceStatus, type SowStatus } from "@/lib/purchasing";
+import { BUDGET_CATEGORIES, INVOICE_STATUSES, INVOICE_STATUS_LABEL, SOW_STATUSES, SOW_STATUS_LABEL, type InvoiceStatus, type SowStatus } from "@/lib/purchasing";
 import { cn } from "@/lib/utils";
 import { isOverdue } from "@/lib/work";
 import type { Access, Contractor, Invoice, Punch, Scope } from "@/server/services/contractors";
@@ -102,6 +102,7 @@ export function ScopesSection({ scopes, contractors, projects, fixed }: { scopes
     ...(!fixed.projectId ? [{ name: "projectId", label: "Project", type: "select" as const, options: projects.map((p) => [p.id, p.name] as [string, string]), empty: "No project" }] : []),
     { name: "status", label: "Status", type: "select", options: SOW_STATUSES.map((s) => [s, SOW_STATUS_LABEL[s]]) },
     { name: "value", label: "Value ($)", type: "money" },
+    { name: "category", label: "Budget category", type: "text", list: [...BUDGET_CATEGORIES], placeholder: "Labor" },
     { name: "start", label: "Start", type: "date" },
     { name: "end", label: "End", type: "date" },
     { name: "body", label: "Scope", type: "markdown", placeholder: "## Scope\n- …\n\n## Exclusions\n- …" },
@@ -147,7 +148,7 @@ export function ScopesSection({ scopes, contractors, projects, fixed }: { scopes
           onSave={async (v, attachments) =>
             asResult(
               await saveScopeAction(
-                { title: v.title, contractorId: fixed.contractorId ?? v.contractorId, projectId: fixed.projectId ?? orNull(v.projectId), status: v.status as SowStatus, value: num(v.value), start: orNull(v.start), end: orNull(v.end), body: v.body, attachments },
+                { title: v.title, contractorId: fixed.contractorId ?? v.contractorId, projectId: fixed.projectId ?? orNull(v.projectId), status: v.status as SowStatus, category: v.category, value: num(v.value), start: orNull(v.start), end: orNull(v.end), body: v.body, attachments },
                 current?.id,
               ),
             )
@@ -289,6 +290,7 @@ export function InvoiceSection({ rows, contractors, projects, fixed, csv = "invo
   const fields: FieldSpec[] = [
     { name: "number", label: "Invoice #", type: "text" },
     { name: "amount", label: "Amount ($)", type: "money", required: true },
+    { name: "category", label: "Budget category", type: "text", list: [...BUDGET_CATEGORIES], placeholder: "Labor" },
     ...(!fixed.contractorId ? [{ name: "contractorId", label: "Contractor", type: "select" as const, options: contractors.map((c) => [c.id, c.name] as [string, string]), required: true }] : []),
     ...(!fixed.projectId ? [{ name: "projectId", label: "Project", type: "select" as const, options: projects.map((p) => [p.id, p.name] as [string, string]), empty: "No project" }] : []),
     { name: "date", label: "Date", type: "date" },
@@ -331,7 +333,7 @@ export function InvoiceSection({ rows, contractors, projects, fixed, csv = "invo
           onSave={async (v, attachments) =>
             asResult(
               await saveInvoiceAction(
-                { number: v.number, amount: num(v.amount), contractorId: fixed.contractorId ?? v.contractorId, projectId: fixed.projectId ?? orNull(v.projectId), date: orNull(v.date), dueDate: orNull(v.dueDate), status: v.status as InvoiceStatus, notes: v.notes, attachments },
+                { number: v.number, category: v.category, amount: num(v.amount), contractorId: fixed.contractorId ?? v.contractorId, projectId: fixed.projectId ?? orNull(v.projectId), date: orNull(v.date), dueDate: orNull(v.dueDate), status: v.status as InvoiceStatus, notes: v.notes, attachments },
                 current?.id,
               ),
             )

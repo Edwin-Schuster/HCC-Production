@@ -30,10 +30,30 @@ describe("budget arithmetic", () => {
       sows: [{ status: "signed", valueCents: 120_000 }, { status: "draft", valueCents: 50_000 }],
       invoices: [{ status: "paid", amountCents: 40_000 }, { status: "approved", amountCents: 80_000 }],
     });
-    expect(b).toMatchObject({ planned: 919_000, committed: 859_000 + 60_000 + 29_000 + 120_000, spent: 859_000 + 24_000 + 40_000 });
+    // The signed scope is planned work as well as committed; the draft isn't counted yet.
+    expect(b).toMatchObject({ planned: 919_000 + 120_000, committed: 859_000 + 60_000 + 29_000 + 120_000, spent: 859_000 + 24_000 + 40_000 });
     expect(b.remaining).toBe(1_000_000 - b.committed);
-    expect(b.byCategory.find((c) => c.category === "Labor")).toEqual({ category: "Labor", planned: 0, committed: 120_000, spent: 40_000 });
+    expect(b.byCategory.find((c) => c.category === "Labor")).toEqual({ category: "Labor", source: "", budgeted: null, planned: 120_000, committed: 120_000, spent: 40_000 });
     expect(b.byCategory.find((c) => c.category === "Audio")).toBeUndefined();
+  });
+
+  it("puts contractor work in its category and lists budget lines first, in order", () => {
+    const b = budgetFor({
+      budgetCents: 500_000,
+      lines: [
+        { category: "Video Walls", source: "EKO", budgetCents: 300_000 },
+        { category: "Lighting", source: "HCC", budgetCents: 30_000 },
+        { category: "Networking", source: "HCC", budgetCents: 0 },
+      ],
+      bom: [{ category: "Lighting", qty: 2, unitCostCents: 20_000 }, { category: "Video", qty: 1, unitCostCents: 5_000 }],
+      pos: [],
+      sows: [{ status: "sent", valueCents: 293_857, category: "Video Walls" }],
+      invoices: [{ status: "paid", amountCents: 100_000, category: "Video Walls" }],
+    });
+    expect(b.byCategory.map((c) => c.category)).toEqual(["Video Walls", "Lighting", "Networking", "Video"]);
+    expect(b.byCategory[0]).toEqual({ category: "Video Walls", source: "EKO", budgeted: 300_000, planned: 293_857, committed: 0, spent: 100_000 });
+    expect(b.byCategory[1]).toMatchObject({ budgeted: 30_000, planned: 40_000 }); // planned over its budget
+    expect(b.byCategory[3]).toMatchObject({ budgeted: null });
   });
 
   it("derives receiving status from the lines", () => {
@@ -97,6 +117,6 @@ describe("purchasing", () => {
     const [c] = await t.db.insert(contractors).values({ workspaceId: editor.workspaceId, company: "Sparks" }).returning();
     await t.db.insert(scopesOfWork).values({ workspaceId: editor.workspaceId, contractorId: c.id, projectId: p.id, title: "Wiring", status: "signed", valueCents: 250_000 });
     await t.db.insert(invoices).values({ workspaceId: editor.workspaceId, contractorId: c.id, projectId: p.id, number: "1", amountCents: 100_000, status: "paid" });
-    expect(await projectBudget(t.db, editor, p.id)).toMatchObject({ budget: 1_000_000, planned: 300_000, committed: 250_000, spent: 100_000, remaining: 750_000 });
+    expect(await projectBudget(t.db, editor, p.id)).toMatchObject({ budget: 1_000_000, planned: 300_000 + 250_000, committed: 250_000, spent: 100_000, remaining: 750_000 });
   });
 });

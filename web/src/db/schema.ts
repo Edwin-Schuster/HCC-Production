@@ -829,12 +829,61 @@ export const bomItems = pgTable("bom_items", {
   partNumber: text("part_number").notNull().default(""),
   vendor: text("vendor").notNull().default(""),
   category: text("category").notNull().default("Other"),
+  /** A group within the category, like "Front Stage Lighting". */
+  section: text("section").notNull().default(""),
+  /** Where to buy it. */
+  url: text("url").notNull().default(""),
   qty: doublePrecision("qty").notNull().default(1),
   unitCostCents: integer("unit_cost_cents").notNull().default(0),
   status: text("status").notNull().default("needed"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
+
+/** How much of a project's budget each category gets, and who pays for it (e.g. "EKO" for the integrator's contract, "HCC" for in-house purchases). */
+export const budgetLines = pgTable(
+  "budget_lines",
+  {
+    id: id(),
+    workspaceId: ws(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    category: text("category").notNull(),
+    source: text("source").notNull().default(""),
+    budgetCents: integer("budget_cents").notNull().default(0),
+    notes: text("notes").notNull().default(""),
+    position: integer("position").notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("budget_lines_category_idx").on(t.projectId, t.category)],
+);
+
+/** A project's network plan: every switch port (or Wi-Fi device) with its VLAN, address and device. */
+export const networkPorts = pgTable(
+  "network_ports",
+  {
+    id: id(),
+    workspaceId: ws(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    /** "Switch 1", "Booth switch", or "Wi-Fi". */
+    switchName: text("switch_name").notNull().default(""),
+    port: text("port").notNull().default(""),
+    vlan: text("vlan").notNull().default(""),
+    ip: text("ip").notNull().default(""),
+    device: text("device").notNull().default(""),
+    mac: text("mac").notNull().default(""),
+    length: text("length").notNull().default(""),
+    notes: text("notes").notNull().default(""),
+    position: integer("position").notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("network_ports_project_idx").on(t.projectId, t.position)],
+);
 
 export type PoLine = { id: string; desc: string; qty: number; unitCostCents: number; receivedQty: number; bomItemId?: string | null };
 
@@ -883,6 +932,8 @@ export const scopesOfWork = pgTable("scopes_of_work", {
   projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
   title: text("title").notNull(),
   status: text("status").notNull().default("draft"),
+  /** The project budget category this work is paid from. */
+  category: text("category").notNull().default("Labor"),
   valueCents: integer("value_cents").notNull().default(0),
   start: day("start"),
   end: day("end"),
@@ -932,6 +983,8 @@ export const invoices = pgTable("invoices", {
   number: text("number").notNull().default(""),
   date: day("date"),
   dueDate: day("due_date"),
+  /** The project budget category this invoice is paid from. */
+  category: text("category").notNull().default("Labor"),
   amountCents: integer("amount_cents").notNull().default(0),
   status: text("status").notNull().default("received"),
   notes: text("notes").notNull().default(""),

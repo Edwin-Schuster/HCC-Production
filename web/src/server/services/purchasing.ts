@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Executor } from "@/db";
-import { bomItems, invoices, projects, purchaseOrders, scopesOfWork, type Attachment, type PoLine } from "@/db/schema";
+import { bomItems, budgetLines, invoices, projects, purchaseOrders, scopesOfWork, type Attachment, type PoLine } from "@/db/schema";
 import { BOM_STATUSES, BOM_STATUS_LABEL, INVOICE_STATUSES, PO_STATUSES, PO_STATUS_LABEL, SOW_STATUSES, budgetFor, deriveStatus, lineReceived, lineTotal, type BomStatus, type InvoiceStatus, type PoStatus, type SowStatus } from "@/lib/purchasing";
 import { invalid, notFound } from "@/server/errors";
 import type { Actor } from "@/server/permissions";
@@ -19,14 +19,24 @@ const fmt = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFracti
 
 // ---------- Bill of materials ----------
 
-export type BomItem = { id: string; projectId: string; item: string; partNumber: string; vendor: string; category: string; qty: number; unitCostCents: number; status: BomStatus };
-const toBom = (b: typeof bomItems.$inferSelect): BomItem => ({ id: b.id, projectId: b.projectId, item: b.item, partNumber: b.partNumber, vendor: b.vendor, category: b.category, qty: b.qty, unitCostCents: b.unitCostCents, status: pick(BOM_STATUSES, b.status, "needed") });
+export type BomItem = { id: string; projectId: string; item: string; partNumber: string; vendor: string; category: string; section: string; url: string; qty: number; unitCostCents: number; status: BomStatus };
+const toBom = (b: typeof bomItems.$inferSelect): BomItem => ({ id: b.id, projectId: b.projectId, item: b.item, partNumber: b.partNumber, vendor: b.vendor, category: b.category, section: b.section, url: b.url, qty: b.qty, unitCostCents: b.unitCostCents, status: pick(BOM_STATUSES, b.status, "needed") });
+
+/** Links people can open: http(s) only. */
+const WebLink = z
+  .string()
+  .trim()
+  .max(2_000)
+  .refine((u) => !u || /^https?:\/\/\S+$/i.test(u), "Links must start with http:// or https://")
+  .default("");
 
 export const BomInput = z.object({
   item: z.string().trim().min(1, "Name the item").max(200),
   partNumber: z.string().trim().max(80).default(""),
   vendor: z.string().trim().max(120).default(""),
-  category: z.string().trim().min(1).max(40).default("Other"),
+  category: z.string().trim().min(1).max(60).default("Other"),
+  section: z.string().trim().max(120).default(""),
+  url: WebLink,
   qty: z.number().min(0).max(1_000_000).default(1),
   /** Dollars. */
   unitCost: Money.default(0),
@@ -269,17 +279,75 @@ export async function deletePurchaseOrder(db: Executor, actor: Actor, id: string
 
 export async function projectBudget(db: Executor, actor: Actor, projectId: string) {
   const project = await loadProject(db, actor, projectId);
-  const [bom, pos, sows, invs] = await Promise.all([
+  const [bom, pos, sows, invs, lines] = await Promise.all([
     db.select().from(bomItems).where(eq(bomItems.projectId, projectId)),
     db.select().from(purchaseOrders).where(eq(purchaseOrders.projectId, projectId)),
     db.select().from(scopesOfWork).where(eq(scopesOfWork.projectId, projectId)),
     db.select().from(invoices).where(eq(invoices.projectId, projectId)),
+    db.select().from(budgetLines).where(eq(budgetLines.projectId, projectId)).orderBy(asc(budgetLines.position), asc(budgetLines.category)),
   ]);
   return budgetFor({
     budgetCents: project.budgetCents,
     bom,
     pos: pos.map((p) => ({ category: p.category, status: pick(PO_STATUSES, p.status, "draft"), lines: p.lines })),
-    sows: sows.map((s) => ({ status: pick(SOW_STATUSES, s.status, "draft") as SowStatus, valueCents: s.valueCents })),
-    invoices: invs.map((i) => ({ status: pick(INVOICE_STATUSES, i.status, "received") as InvoiceStatus, amountCents: i.amountCents })),
+    sows: sows.map((s) => ({ status: pick(SOW_STATUSES, s.status, "draft") as SowStatus, valueCents: s.valueCents, category: s.category })),
+    invoices: invs.map((i) => ({ status: pick(INVOICE_STATUSES, i.status, "received") as InvoiceStatus, amountCents: i.amountCents, category: i.category })),
+    lines,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Budget lines: how much each category gets, and who pays for it
+// ---------------------------------------------------------------------------
+
+export type BudgetLine = { id: string; category: string; source: string; budgetCents: number; notes: string; position: number };
+
+export const BudgetLineInput = z.object({
+  category: z.string().trim().min(1, "Name the category").max(60),
+  source: z.string().trim().max(60).default(""),
+  /** Dollars. */
+  budget: Money.default(0),
+  notes: z.string().trim().max(1_000).default(""),
+});
+
+export async function listBudgetLines(db: Executor, actor: Actor, projectId: string): Promise<BudgetLine[]> {
+  await loadProject(db, actor, projectId);
+  const rows = await db.select().from(budgetLines).where(eq(budgetLines.projectId, projectId)).orderBy(asc(budgetLines.position), asc(budgetLines.category));
+  return rows.map((r) => ({ id: r.id, category: r.category, source: r.source, budgetCents: r.budgetCents, notes: r.notes, position: r.position }));
+}
+
+/** The project's total budget follows its budget lines once it has any. */
+async function syncProjectBudget(db: Executor, projectId: string) {
+  const [{ total }] = await db.select({ total: sql<number>`coalesce(sum(${budgetLines.budgetCents}), 0)::int` }).from(budgetLines).where(eq(budgetLines.projectId, projectId));
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(budgetLines).where(eq(budgetLines.projectId, projectId));
+  if (n > 0) await db.update(projects).set({ budgetCents: total, updatedAt: new Date() }).where(eq(projects.id, projectId));
+}
+
+export async function saveBudgetLine(db: Executor, actor: Actor, projectId: string, input: z.input<typeof BudgetLineInput>, id?: string) {
+  const project = await loadProject(db, actor, projectId);
+  const data = BudgetLineInput.parse(input);
+  const values = { category: data.category, source: data.source, budgetCents: Math.round(data.budget * 100), notes: data.notes };
+  return db.transaction(async (tx) => {
+    const [clash] = await tx.select({ id: budgetLines.id }).from(budgetLines).where(and(eq(budgetLines.projectId, project.id), sql`lower(${budgetLines.category}) = lower(${data.category})`)).limit(1);
+    if (clash && clash.id !== id) throw invalid(`There's already a budget line for ${data.category}.`);
+    if (id) {
+      const [row] = await tx.update(budgetLines).set({ ...values, updatedAt: new Date() }).where(and(eq(budgetLines.id, id), eq(budgetLines.projectId, project.id))).returning();
+      if (!row) throw notFound("Budget line not found.");
+    } else {
+      const [{ next }] = await tx.select({ next: sql<number>`coalesce(max(${budgetLines.position}), -1)::int + 1` }).from(budgetLines).where(eq(budgetLines.projectId, project.id));
+      await tx.insert(budgetLines).values({ workspaceId: actor.workspaceId, projectId: project.id, position: next, ...values });
+    }
+    await syncProjectBudget(tx, project.id);
+    await logActivity(tx, actor, { projectId: project.id, targetType: "project", targetId: project.id, targetName: project.name, text: `${id ? "updated" : "added"} the ${data.category} budget (${(values.budgetCents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })})` });
+  });
+}
+
+export async function deleteBudgetLine(db: Executor, actor: Actor, id: string) {
+  requireEditor(actor, "budgets");
+  const [line] = await db.select().from(budgetLines).where(and(eq(budgetLines.id, id), eq(budgetLines.workspaceId, actor.workspaceId))).limit(1);
+  if (!line) throw notFound("Budget line not found.");
+  await db.transaction(async (tx) => {
+    await tx.delete(budgetLines).where(eq(budgetLines.id, id));
+    await syncProjectBudget(tx, line.projectId);
   });
 }

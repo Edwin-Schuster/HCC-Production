@@ -1,0 +1,1 @@
+ALTER TABLE "invoices" ADD COLUMN "category" text DEFAULT 'Labor' NOT NULL;

@@ -37,14 +37,19 @@ export type BudgetInput = {
   budgetCents: number;
   bom: { category: string; qty: number; unitCostCents: number }[];
   pos: { category: string; status: PoStatus; lines: Line[] }[];
-  sows: { status: SowStatus; valueCents: number }[];
-  invoices: { status: InvoiceStatus; amountCents: number }[];
+  /** Contractor work counts under its category ("Labor" when it has none). */
+  sows: { status: SowStatus; valueCents: number; category?: string }[];
+  invoices: { status: InvoiceStatus; amountCents: number; category?: string }[];
+  /** Budget per category, in the order to show them. */
+  lines?: { category: string; source: string; budgetCents: number }[];
 };
 export type Money = { planned: number; committed: number; spent: number };
+export type CategoryBudget = Money & { category: string; source: string; budgeted: number | null };
 
 /**
- * Planned = the bill of materials. Committed = submitted purchase orders plus signed scopes of work.
- * Spent = goods received plus paid invoices. Remaining = budget minus committed. Contractor work counts as Labor.
+ * Planned = the bill of materials plus contractor quotes (scopes past draft). Committed = submitted purchase
+ * orders plus signed scopes of work. Spent = goods received plus paid invoices. Remaining = budget minus
+ * committed. Contractor work and invoices count under their category, Labor by default.
  */
 export function budgetFor(b: BudgetInput) {
   const cats = new Map<string, Money>();
@@ -59,8 +64,12 @@ export function budgetFor(b: BudgetInput) {
     cat(po.category).committed += lineTotal(po.lines);
     cat(po.category).spent += lineReceived(po.lines);
   }
-  for (const s of b.sows) if (COMMITTED_SOW.includes(s.status)) cat("Labor").committed += s.valueCents;
-  for (const i of b.invoices) if (i.status === "paid") cat("Labor").spent += i.amountCents;
+  for (const line of b.lines ?? []) cat(line.category);
+  for (const s of b.sows) {
+    if (s.status !== "draft") cat(s.category || "Labor").planned += s.valueCents;
+    if (COMMITTED_SOW.includes(s.status)) cat(s.category || "Labor").committed += s.valueCents;
+  }
+  for (const i of b.invoices) if (i.status === "paid") cat(i.category || "Labor").spent += i.amountCents;
   const sum = (k: keyof Money) => [...cats.values()].reduce((s, m) => s + m[k], 0);
   const committed = sum("committed");
   return {
@@ -69,6 +78,17 @@ export function budgetFor(b: BudgetInput) {
     committed,
     spent: sum("spent"),
     remaining: b.budgetCents - committed,
-    byCategory: [...cats].map(([category, m]) => ({ category, ...m })).sort((a, b) => b.planned + b.committed - (a.planned + a.committed)),
+    byCategory: byCategory(cats, b.lines ?? []),
   };
+}
+
+/** Categories with a budget line first, in their order; then the rest, biggest first. */
+function byCategory(cats: Map<string, Money>, lines: { category: string; source: string; budgetCents: number }[]): CategoryBudget[] {
+  const lineOf = new Map(lines.map((l, i) => [l.category.toLowerCase(), { ...l, i }]));
+  const rows = [...cats].map(([category, m]) => {
+    const line = lineOf.get(category.toLowerCase());
+    return { category, source: line?.source ?? "", budgeted: line ? line.budgetCents : null, ...m, order: line ? line.i : Infinity };
+  });
+  rows.sort((a, b) => a.order - b.order || b.planned + b.committed - (a.planned + a.committed));
+  return rows.map(({ order: _order, ...r }) => r);
 }
