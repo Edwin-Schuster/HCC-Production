@@ -79,8 +79,11 @@ export async function importWorkbook(db: Executor, actor: Actor, projectId: stri
     for (const left of [...pool.values()].flat()) await tx.update(bomItems).set({ position: next++ }).where(eq(bomItems.id, left.id));
 
     // A contractor's contract: one scope of work per budget line, quoted at its budget.
+    // A payer whose categories have items is buying them itself; quoting its lines too would count them twice.
+    const withItems = new Set(data.items.map((i) => lc(i.category)));
     for (const company of data.contractors) {
       const groupLines = data.budget.filter((b) => lc(b.source) === lc(company));
+      if (groupLines.some((b) => withItems.has(lc(b.category)))) continue;
       if (!groupLines.length) continue;
       let [c] = await tx.select().from(contractors).where(and(eq(contractors.workspaceId, actor.workspaceId), sql`lower(${contractors.company}) = ${lc(company)}`)).limit(1);
       if (!c) [c] = await tx.insert(contractors).values({ workspaceId: actor.workspaceId, company }).returning();

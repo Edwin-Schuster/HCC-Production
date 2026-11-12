@@ -13,8 +13,8 @@ test("start a project from a workbook and see its budget, network and what needs
   await expect(summary).toContainText("Budget: 5 categories, $401,000 in total");
   await expect(summary).toContainText("Bill of materials: 4 items");
   await expect(summary).toContainText("Network plan: 8 ports and devices");
-  await expect(dialog.getByLabel(/EKO is a contractor/)).toBeChecked();
-  await expect(dialog.getByLabel(/HCC is a contractor/)).not.toBeChecked();
+  await expect(dialog.getByLabel(/EKO is an outside contractor/)).toBeChecked();
+  await expect(dialog.getByLabel(/HCC is an outside contractor/)).toHaveCount(0); // HCC buys its own items
   await Promise.all([page.waitForURL(/\/projects\/[^/]+\/budget$/), dialog.getByRole("button", { name: "Create project" }).click()]);
 
   // Budget by category, grouped by who pays, with the overspend flagged.

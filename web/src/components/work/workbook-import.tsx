@@ -60,6 +60,8 @@ function WorkbookDialog({ projectId, onClose }: { projectId?: string; onClose: (
 
   const toggle = (k: keyof typeof use) => setUse({ ...use, [k]: !use[k] });
   const sources = wb ? [...new Set(wb.budget.map((b) => b.source).filter(Boolean))] : [];
+  // Payers that buy their own items (an item tab per category) can't also be a contractor: it would count twice.
+  const canContract = wb ? contractorGroups(wb) : [];
   const itemTabs = wb ? wb.tabs.filter((t) => t.kind === "items") : [];
   const switches = wb ? [...new Set(wb.ports.map((p) => p.switchName))] : [];
   const dupes = wb ? duplicateIps(wb.ports.map((p, i) => ({ ...p, id: String(i) }))) : new Map();
@@ -116,9 +118,9 @@ function WorkbookDialog({ projectId, onClose }: { projectId?: string; onClose: (
                 {wb.budget.length > 0 && (
                   <Part checked={use.budget} onChange={() => toggle("budget")} title={`Budget: ${wb.budget.length} categories, ${dollars(wb.budget.reduce((s, b) => s + b.budget, 0))} in total`}>
                     {sources.map((src) => `${src}: ${wb.budget.filter((b) => b.source === src).map((b) => b.category).join(", ")}`).join(" · ")}
-                    {sources.length > 0 && (
+                    {canContract.length > 0 && (
                       <span className="mt-1.5 grid gap-1">
-                        {sources.map((src) => (
+                        {canContract.map((src) => (
                           <label key={src} className="flex items-center gap-2 text-fg-2">
                             <input
                               type="checkbox"
@@ -127,7 +129,7 @@ function WorkbookDialog({ projectId, onClose }: { projectId?: string; onClose: (
                               disabled={!use.budget}
                               onChange={() => setContractors(contractors.includes(src) ? contractors.filter((c) => c !== src) : [...contractors, src])}
                             />
-                            {src} is a contractor: add them with a quoted scope of work for each of their lines
+                            {src} is an outside contractor: add them under Contractors with a quote for each of their lines
                           </label>
                         ))}
                       </span>

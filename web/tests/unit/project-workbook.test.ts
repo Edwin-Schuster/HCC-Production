@@ -93,6 +93,11 @@ describe("importing a project workbook", () => {
     expect(after).toMatchObject({ unitCostCents: 28_000, status: "ordered" });
     expect((await listScopes(t.db, editor, { projectId: id })).length).toBe(2);
     expect((await listContractors(t.db, editor)).filter((c) => c.company === "EKO")).toHaveLength(1);
+
+    // HCC buys its own items, so it's never added as a contractor, even when asked to be.
+    await importWorkbook(t.db, editor, id, { ...payload, contractors: ["EKO", "HCC"] });
+    expect((await listContractors(t.db, editor)).filter((c) => c.company === "HCC")).toHaveLength(0);
+    expect((await projectBudget(t.db, editor, id)).byCategory.find((c) => c.category === "Lighting")).toMatchObject({ budgeted: 3_000_000, planned: 2_174_000 }); // the items only
   });
 });
 
