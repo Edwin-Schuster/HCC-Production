@@ -868,9 +868,8 @@ export const networkPorts = pgTable(
   {
     id: id(),
     workspaceId: ws(),
-    projectId: text("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+    /** Null for the church's own network (the Network section); otherwise a project's plan. */
+    projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
     /** "Switch 1", "Booth switch", or "Wi-Fi". */
     switchName: text("switch_name").notNull().default(""),
     port: text("port").notNull().default(""),

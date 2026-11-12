@@ -23,8 +23,8 @@ export const CableStatusBadge = ({ status }: { status: CableStatus }) => <Badge 
 export function CableType({ type }: { type: string }) {
   const h = labelHue(type);
   return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[13px]">
-      <span className="size-2 rounded-full" style={{ background: `hsl(${h} 55% 55%)` }} aria-hidden />
+    <span className="inline-flex min-w-0 items-baseline gap-1.5 text-[13px]">
+      <span className="size-2 shrink-0 translate-y-[-1px] rounded-full" style={{ background: `hsl(${h} 55% 55%)` }} aria-hidden />
       {type}
     </span>
   );
@@ -103,7 +103,7 @@ export function CablingView({ projectId, projectName, cables }: { projectId: str
 
       {cables.length ? (
         <div className="overflow-x-auto rounded-[12px] border border-line bg-surface">
-          <table className="w-full min-w-[760px] text-[13px]">
+          <table className="w-full min-w-[1080px] text-[13px]">
             <thead>
               <tr className="border-b border-line text-left text-xs text-muted">
                 {COLUMNS.map(([k, label, cls]) => (
@@ -121,21 +121,21 @@ export function CablingView({ projectId, projectName, cables }: { projectId: str
               {rows.map((c) => (
                 <tr key={c.id} className="cursor-pointer border-b border-line last:border-0 hover:bg-wash-2" onClick={() => setEditing(c)}>
                   <td className="px-3 py-2">
-                    <button type="button" className="font-mono font-[510] text-fg-hi" onClick={() => setEditing(c)}>
+                    <button type="button" className="whitespace-nowrap font-mono font-[510] text-fg-hi" onClick={() => setEditing(c)}>
                       {c.label}
                     </button>
                   </td>
-                  <td className="max-w-56 px-3 py-2 text-fg-hi">{c.name}</td>
-                  <td className="max-w-48 px-3 py-2">
+                  <td className="min-w-[160px] max-w-64 px-3 py-2 text-fg-hi">{c.name}</td>
+                  <td className="min-w-[180px] max-w-56 px-3 py-2">
                     <CableType type={c.type} />
                   </td>
-                  <td className="px-3 py-2 text-fg-2">{c.from}</td>
-                  <td className="px-3 py-2 text-fg-2">{c.to}</td>
+                  <td className="min-w-[140px] px-3 py-2 text-fg-2">{c.from}</td>
+                  <td className="min-w-[140px] px-3 py-2 text-fg-2">{c.to}</td>
                   <td className="px-3 py-2 text-right font-mono text-xs">{c.lengthFt !== null ? `${c.lengthFt.toLocaleString()} ft` : ""}</td>
                   <td className="px-3 py-2">
                     <CableStatusBadge status={c.status} />
                   </td>
-                  <td className="px-3 py-2 text-fg-2 max-md:hidden">{c.room}</td>
+                  <td className="min-w-[130px] px-3 py-2 text-fg-2 max-md:hidden">{c.room}</td>
                   <td className="px-3 py-2 text-fg-2 max-lg:hidden">{c.who}</td>
                   <td className="max-w-56 truncate px-3 py-2 text-muted max-lg:hidden">{c.notes}</td>
                 </tr>
@@ -161,7 +161,7 @@ export function CablingView({ projectId, projectName, cables }: { projectId: str
           </h2>
           <ul className="grid gap-2" role="list">
             {byType.map(([type, ft]) => (
-              <li key={type} className="grid grid-cols-[110px_1fr_auto] items-center gap-3 text-[13px]">
+              <li key={type} className="grid grid-cols-[minmax(0,200px)_1fr_auto] items-center gap-3 text-[13px]">
                 <CableType type={type} />
                 <span className="h-2 overflow-hidden rounded-full bg-wash">
                   <span className="block h-full rounded-full" style={{ width: `${(ft / maxFt) * 100}%`, background: `hsl(${labelHue(type)} 55% 55%)` }} />

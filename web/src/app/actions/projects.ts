@@ -9,7 +9,7 @@ import type { TaskStatus } from "@/lib/work";
 import { createCable, createLayout, deleteCable, deleteLayout, importCables, saveLayout, updateCable, type CableInput, type ImportCablesInput, type LayoutInput } from "@/server/services/cabling";
 import { createBomItem, createPurchaseOrder, deleteBomItem, deletePurchaseOrder, receivePurchaseOrder, updateBomItem, updatePurchaseOrder, type BomInput, type PoInput, type ReceiveInput, saveBudgetLine, deleteBudgetLine, type BudgetLineInput } from "@/server/services/purchasing";
 import { addPhotos, deletePhoto, updatePhoto, type PhotoEdit, type PhotoInput } from "@/server/services/photos";
-import { deletePort, importPorts, renameSwitch, savePort, type ImportPortsInput, type PortInput } from "@/server/services/network";
+import { copyProjectNetwork, deletePort, importPorts, renameSwitch, savePort, type ImportPortsInput, type PortInput } from "@/server/services/network";
 import { createProjectFromWorkbook, importWorkbook, type WorkbookInput } from "@/server/services/project-import";
 import { run } from "./run";
 
@@ -71,10 +71,13 @@ export const addPhotosAction = async (projectId: string, input: z.input<typeof P
 export const updatePhotoAction = async (id: string, input: z.input<typeof PhotoEdit>) => done(await run((db, actor) => updatePhoto(db, actor, Id.parse(id), input)));
 export const deletePhotoAction = async (id: string) => done(await run((db, actor) => deletePhoto(db, actor, Id.parse(id))));
 
-export const savePortAction = async (projectId: string, input: z.input<typeof PortInput>, id?: string) => done(await run(async (db, actor) => void (await savePort(db, actor, Id.parse(projectId), input, id ? Id.parse(id) : undefined))));
+// Network plans: a project's (projectId) or the church's own (null).
+const Scope = Id.nullable();
+export const savePortAction = async (projectId: string | null, input: z.input<typeof PortInput>, id?: string) => done(await run(async (db, actor) => void (await savePort(db, actor, Scope.parse(projectId), input, id ? Id.parse(id) : undefined))));
 export const deletePortAction = async (id: string) => done(await run((db, actor) => deletePort(db, actor, Id.parse(id))));
-export const renameSwitchAction = async (projectId: string, from: string, to: string) => done(await run((db, actor) => renameSwitch(db, actor, Id.parse(projectId), z.string().max(80).parse(from), to)));
-export const importPortsAction = async (projectId: string, rows: z.input<typeof ImportPortsInput>) => done(await run((db, actor) => importPorts(db, actor, Id.parse(projectId), rows)));
+export const renameSwitchAction = async (projectId: string | null, from: string, to: string) => done(await run((db, actor) => renameSwitch(db, actor, Scope.parse(projectId), z.string().max(80).parse(from), to)));
+export const importPortsAction = async (projectId: string | null, rows: z.input<typeof ImportPortsInput>) => done(await run((db, actor) => importPorts(db, actor, Scope.parse(projectId), rows)));
+export const copyProjectNetworkAction = async (projectId: string) => done(await run((db, actor) => copyProjectNetwork(db, actor, Id.parse(projectId))));
 
 export const importWorkbookAction = async (projectId: string, input: z.input<typeof WorkbookInput>) => done(await run((db, actor) => importWorkbook(db, actor, Id.parse(projectId), input)));
 export const createProjectFromWorkbookAction = async (name: string, input: z.input<typeof WorkbookInput>) => done(await run((db, actor) => createProjectFromWorkbook(db, actor, z.string().max(120).parse(name), input)));

@@ -32,3 +32,18 @@ test("start a project from a workbook and see its budget, network and what needs
   await expect(attention).toContainText("Misc is $800 over its $1,000 budget");
   await expect(attention).toContainText("EKO: 2 scopes of work not signed yet");
 });
+
+test("the church's Network section: import a network tab, see switches and duplicate IPs", async ({ page }) => {
+  await signIn(page);
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Network" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Network" })).toBeVisible();
+  await page.getByRole("button", { name: "Import" }).click();
+  const dialog = page.getByRole("dialog", { name: "Import a network plan" });
+  await dialog.getByLabel("Spreadsheet").setInputFiles(path.join(__dirname, "../fixtures/project-workbook.xlsx"));
+  await expect(dialog.getByTestId("network-import-summary")).toContainText("8 ports and devices");
+  await dialog.getByRole("button", { name: "Import" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("region", { name: "Switch 2 (4-port)" })).toContainText("Hyperdeck 1");
+  await expect(page.getByRole("region", { name: "Wi-Fi" })).toContainText("Mixing iPad");
+  await expect(page.getByRole("alert").filter({ hasText: "used by more than one device" })).toContainText("10.0.19.79");
+});

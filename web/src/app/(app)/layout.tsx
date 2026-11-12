@@ -85,6 +85,9 @@ async function NavContent() {
             <NavLink href="/gear" icon={NavIcons.gear}>
               Gear
             </NavLink>
+            <NavLink href="/network" icon={NavIcons.network}>
+              Network
+            </NavLink>
             <NavLink href="/purchasing" icon={NavIcons.purchasing}>
               Budgets
             </NavLink>

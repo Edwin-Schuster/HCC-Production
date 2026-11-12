@@ -1,0 +1,1 @@
+ALTER TABLE "network_ports" ALTER COLUMN "project_id" DROP NOT NULL;

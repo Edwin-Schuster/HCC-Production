@@ -1,15 +1,17 @@
 "use client";
 
-import { Download, Pencil, Plus, Search, Trash2, TriangleAlert } from "lucide-react";
+import { Download, FileSpreadsheet, Pencil, Plus, Search, Trash2, TriangleAlert } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { deletePortAction, renameSwitchAction, savePortAction } from "@/app/actions/projects";
+import { copyProjectNetworkAction, deletePortAction, importPortsAction, renameSwitchAction, savePortAction } from "@/app/actions/projects";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Field, Input, Textarea } from "@/components/ui/field";
+import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { downloadCsv, slug } from "@/lib/csv";
 import { duplicateIps, isIpv4 } from "@/lib/network";
 import { labelHue } from "@/lib/work";
+import { readWorkbook, type PortRow } from "@/lib/project-workbook";
+import { readCsv, readXlsx } from "@/lib/xlsx";
 import { cn } from "@/lib/utils";
 import type { NetworkPort } from "@/server/services/network";
 
@@ -28,8 +30,9 @@ function Vlan({ name }: { name: string }) {
 const inUse = (p: NetworkPort) => Boolean(p.device) || /uplink|trunk/i.test(`${p.vlan} ${p.notes}`);
 
 /** The project's network plan: each switch (and Wi-Fi) as a table of ports, with VLAN filters and IP checks. */
-export function NetworkView({ projectId, projectName, ports }: { projectId: string; projectName: string; ports: NetworkPort[] }) {
+export function NetworkView({ projectId, projectName, ports, sources = [] }: { projectId: string | null; projectName: string; ports: NetworkPort[]; sources?: { id: string; name: string; ports: number }[] }) {
   const [editing, setEditing] = useState<NetworkPort | { switchName: string } | null>(null);
+  const [importing, setImporting] = useState(false);
   const [vlan, setVlan] = useState("");
   const [q, setQ] = useState("");
   const [freeOnly, setFreeOnly] = useState(false);
@@ -86,13 +89,16 @@ export function NetworkView({ projectId, projectName, ports }: { projectId: stri
         >
           <Download /> CSV
         </Button>
+        <Button size="sm" variant="ghost" onClick={() => setImporting(true)}>
+          <FileSpreadsheet /> Import
+        </Button>
         <Button size="sm" variant="primary" onClick={() => setEditing({ switchName: switches[0] ?? "Switch 1" })}>
           <Plus /> Port
         </Button>
       </div>
 
       {!ports.length ? (
-        <p className="rounded-[12px] border border-dashed border-line px-6 py-10 text-center text-[13px] text-muted">No network plan yet. Add each switch port with its VLAN, reserved IP and device, or import your project workbook.</p>
+        <p className="rounded-[12px] border border-dashed border-line px-6 py-10 text-center text-[13px] text-muted">{projectId ? "No network plan yet. Add each switch port with its VLAN, reserved IP and device, or import a spreadsheet." : "Nothing here yet. Add each switch and its ports, Wi-Fi devices and their reserved IPs, or import a spreadsheet or a project's network plan."}</p>
       ) : (
         <div className="grid gap-4">
           {switches.map((sw) => {
@@ -158,11 +164,12 @@ export function NetworkView({ projectId, projectName, ports }: { projectId: stri
       )}
 
       {editing && <PortDialog projectId={projectId} port={editing} switches={switches} vlans={vlans} onClose={() => setEditing(null)} />}
+      {importing && <ImportDialog projectId={projectId} sources={sources} onClose={() => setImporting(false)} />}
     </>
   );
 }
 
-function RenameSwitch({ projectId, name }: { projectId: string; name: string }) {
+function RenameSwitch({ projectId, name }: { projectId: string | null; name: string }) {
   const [pending, start] = useTransition();
   return (
     <Button
@@ -184,7 +191,7 @@ function RenameSwitch({ projectId, name }: { projectId: string; name: string }) 
   );
 }
 
-function PortDialog({ projectId, port, switches, vlans, onClose }: { projectId: string; port: NetworkPort | { switchName: string }; switches: string[]; vlans: string[]; onClose: () => void }) {
+function PortDialog({ projectId, port, switches, vlans, onClose }: { projectId: string | null; port: NetworkPort | { switchName: string }; switches: string[]; vlans: string[]; onClose: () => void }) {
   const [pending, start] = useTransition();
   const current = "id" in port ? port : null;
   return (
@@ -264,6 +271,90 @@ function PortDialog({ projectId, port, switches, vlans, onClose }: { projectId: 
             </Button>
           </div>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Bring in a network tab from a spreadsheet, or (for the church's network) a project's plan. */
+function ImportDialog({ projectId, sources, onClose }: { projectId: string | null; sources: { id: string; name: string; ports: number }[]; onClose: () => void }) {
+  const [rows, setRows] = useState<PortRow[] | null>(null);
+  const [source, setSource] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  const pick = async (file: File) => {
+    setError(null);
+    setSource("");
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const sheets = /\.csv$/i.test(file.name) ? [{ name: file.name, rows: readCsv(new TextDecoder().decode(bytes)) }] : readXlsx(bytes);
+      const ports = readWorkbook(sheets).ports;
+      if (!ports.length) throw new Error("No tab in that file looks like a network plan: it needs columns like Connection (or Port), VLAN, Reserved IP and Device Name.");
+      setRows(ports);
+    } catch (e) {
+      setRows(null);
+      setError(e instanceof Error ? e.message : "Couldn't read that file.");
+    }
+  };
+
+  const ready = Boolean(rows?.length || source);
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent title="Import a network plan" description="Rows already here are matched by switch and port (Wi-Fi by device), so importing again updates them instead of adding copies.">
+        <div className="grid gap-4">
+          <Field label="Spreadsheet" htmlFor="net-file" hint="Excel (.xlsx) or CSV with Connection, VLAN, Reserved IP, Device Name, MAC Address and Notes. A switch ends where the port numbers start again at 1.">
+            <Input id="net-file" type="file" accept=".xlsx,.csv" onChange={(e) => e.target.files?.[0] && void pick(e.target.files[0])} />
+          </Field>
+          {!projectId && sources.length > 0 && (
+            <Field label="Or copy a project's network plan" htmlFor="net-source">
+              <Select
+                id="net-source"
+                value={source}
+                onChange={(e) => {
+                  setSource(e.target.value);
+                  if (e.target.value) setRows(null);
+                }}
+              >
+                <option value="">Choose a project</option>
+                {sources.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.ports} ports and devices)
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          {error && (
+            <p role="alert" className="text-[13px] text-bad">
+              {error}
+            </p>
+          )}
+          {rows && (
+            <p className="text-[13px] text-fg-2" data-testid="network-import-summary">
+              {rows.length} ports and devices on {[...new Set(rows.map((r) => r.switchName))].join(", ")}.
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              disabled={!ready || pending}
+              onClick={() =>
+                start(async () => {
+                  const res = source ? await copyProjectNetworkAction(source) : await importPortsAction(projectId, rows!);
+                  if (!res.ok) return void toast.error(res.error);
+                  toast(`Imported: ${res.data.created} added, ${res.data.updated} updated`);
+                  onClose();
+                })
+              }
+            >
+              {pending ? "Importing…" : "Import"}
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

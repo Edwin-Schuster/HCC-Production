@@ -1,7 +1,7 @@
 "use client";
 
 import { Command } from "cmdk";
-import { BarChart3, Box, CalendarClock, FolderKanban, GraduationCap, HardHat, Home, Inbox, ListTodo, Puzzle, ShoppingCart, Users, BookOpen, FilePlus2, FileText, Heading2, Image as ImageIcon, KeyRound, ListChecks, ListOrdered, Minus, MessageSquareWarning, Moon, Search, Send, Table, Terminal, Eye, CornerDownRight } from "lucide-react";
+import { BarChart3, Box, CalendarClock, FolderKanban, GraduationCap, HardHat, Home, Inbox, ListTodo, Puzzle, ShoppingCart, Users, BookOpen, FilePlus2, FileText, Heading2, Image as ImageIcon, KeyRound, ListChecks, ListOrdered, Minus, MessageSquareWarning, Moon, Search, Send, Table, Terminal, Eye, CornerDownRight, Network } from "lucide-react";
 import { Dialog as D } from "radix-ui";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
@@ -131,6 +131,7 @@ export function CommandPalette({ canCreate, signedIn }: { canCreate: boolean; si
                   { label: "Projects", href: "/projects", icon: <FolderKanban />, show: signedIn },
                   { label: "Contractors", href: "/contractors", icon: <HardHat />, show: canCreate },
                   { label: "Gear", href: "/gear", icon: <Box />, show: canCreate },
+                  { label: "Network", href: "/network", icon: <Network />, show: canCreate },
                   { label: "Budgets", href: "/purchasing", icon: <ShoppingCart />, show: canCreate },
                   { label: "Snippets", href: "/snippets", icon: <Puzzle />, show: canCreate },
                   { label: "All SOPs", href: "/sops", icon: <BookOpen />, show: true },
