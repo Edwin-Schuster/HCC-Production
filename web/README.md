@@ -1,6 +1,6 @@
 # HCC Production
 
-The production team app for Hope Christian Church: SOPs, the roster, projects, cabling and room layouts, budgets and purchasing, contractors and gear. It's built mobile first for use on site. It replaces the original app, which is archived in [`../legacy`](../legacy/README.md); everything in it can be imported (see below).
+The production team app for Hope Christian Church: SOPs, projects, cabling and room layouts, budgets and purchasing, contractors and gear. It's built mobile first for use on site. It replaces the original app, which is archived in [`../legacy`](../legacy/README.md); everything in it can be imported (see below).
 
 **Stack:** Next.js 16 (App Router), React 19, TypeScript (strict), Drizzle ORM on Postgres, BlockNote editor, Tailwind CSS 4, Zod, Playwright (PDF export and e2e tests), Vitest.
 
@@ -9,10 +9,9 @@ The production team app for Hope Christian Church: SOPs, the roster, projects, c
 - **Write:** a block editor with numbered steps (3.2.1, and more than one 1, 2, 3 list per SOP with "Start again at 1"), roles, times, expected results, warnings and branch rules ("if X, go to step N"); callouts, checklists, code, tables, images, video and embeds; shared **snippets**; five templates; images you can resize and crop; autosave with local recovery.
 - **Import** from Word, Google Docs, HTML or Markdown with a preview. **SOP Markdown** (see `public/sop-markdown-guide.md`, also downloadable from the Import page) keeps step roles, times, expected results, warnings, "go to step" rules, callouts and sized, captioned images; zip the Markdown with its images. **Annotate screenshots** with arrows, boxes, numbered markers and text; passwords and account numbers are found by OCR and blurred automatically.
 - **Read:** a clean reading view with a table of contents, PDF export with page numbers and watermarks, a generated **flowchart**, full-text search that finds the matching step, and workspace **branding** (logo, colour, font, header and footer).
-- **Govern:** immutable versions with change summaries, **visual diffs** between versions, rollback, optional **approvals** per folder, review dates with reminders and overdue badges, and an audit log of every change to a published SOP. Retire an SOP to hide it (restore it any time); an admin can also delete one for good, history included, after typing its title.
-- **Use and improve:** **runs** (work through an SOP as a checklist with times and notes), step **feedback** ("unclear" / "wrong") routed to the owner, threaded **comments** with @mentions, and **suggested edits** the owner accepts into the draft. An inbox collects all of it.
-- **Train:** assign SOPs to people with due dates; optional multiple-choice **quizzes** graded on the server; the version each person trained on is recorded.
-- **Measure:** **analytics** for reads, most-skipped steps, run times against estimates, and feedback; a plain-language **audit log**.
+- **Govern:** immutable versions with change summaries, **visual diffs** between versions, rollback, optional **approvals** per folder, and an audit log of every change to a published SOP. Retire an SOP to hide it (restore it any time); an admin can also delete one for good, history included, after typing its title.
+- **Use and improve:** step **feedback** ("unclear" / "wrong") routed to the owner, threaded **comments** with @mentions, and **suggested edits** the owner accepts into the draft. An inbox collects all of it.
+- **Audit log** in plain language.
 - **Share and connect:** **share links** (optional password and expiry) for people outside the team; a **REST API** with personal API keys; signed **webhooks**; an **embed** script for other websites; and a **browser extension** (in [`../extension`](../extension/README.md)) that shows the SOPs for the page you're on and records clicks into a new SOP with screenshots.
 
 Public site (no sign-in needed):
@@ -28,7 +27,7 @@ Editors manage all of it on **Public site** in the app (and each gear item's *Pu
 Production modules:
 
 - **Home:** your tasks by due date, the team and their roles, contractor insurance warnings, active projects, recent activity.
-- **Roster:** people and the production roles they fill. Everyone can change their own name and email on their Profile; admins can rename anyone under People & roles.
+- **People:** everyone can change their own name and email on their Profile; admins add, rename and remove people under People & roles.
 - **Tasks:** your assigned project tasks in one list, plus **general tasks** that don't belong to any project.
 - **Projects:** tasks in **list, board, calendar and timeline** views, with subtasks, assignees, labels, dates, files, comments with @mentions and a readable history. Due-date reminders, a subscribable **calendar feed**, CSV export and a printable **project report**.
 - **Cabling and room layouts:** a cable schedule (import it from an Excel or CSV sheet: pick the tab, preview, and re-import later to update) with footage by type and printable labels for both ends; floor plans with zones, devices linked to gear and cable runs linked to the schedule. Works with touch.
@@ -50,6 +49,8 @@ ADMIN_USER=admin ADMIN_PASSWORD=change-me npm run dev
 ```
 
 Open http://localhost:3000 and sign in. The development server also accepts `127.0.0.1`, `*.local` names (like `Your-Mac.local`) and this computer's own network addresses, so a phone on the same Wi-Fi works too. For any other address, list it in `DEV_ORIGINS` (comma-separated); otherwise the page loads but no buttons respond, because the dev server refuses to send its scripts to unknown addresses. The production build (`npm run build && npm start`, or Docker) has no such limit. With no `DATABASE_URL`, the app uses an embedded Postgres (PGlite) in `web/.data/`, so you don't need a database server to develop. On first start it creates the admin account and, unless `SEED_DEMO=false`, demo content: SOPs, the roster, two projects with tasks, cabling, purchasing, contractors and gear. Delete `web/.data/` to start over.
+
+Runs, the roster, training, SOP reviews and analytics were removed from the app. Their tables and any data in them are kept in the database, unused.
 
 PDF export needs Chromium: `npx playwright install chromium` once.
 
@@ -100,7 +101,7 @@ Outside Docker: `npm run import:legacy -- /path/to/old/data` (the folder holding
 | `UPLOAD_DIR` | `$DATA_DIR/uploads` | Override the upload folder only. |
 | `MAX_UPLOAD_MB` | `25` | Largest image or file upload. |
 | `MAX_VIDEO_MB` | `250` | Largest video upload (MP4 or WebM). |
-| `DISABLE_SCHEDULER` | `false` | Set `true` to stop the background jobs (review and task reminders, webhook delivery) in this process, for example when running several replicas and one of them runs them. |
+| `DISABLE_SCHEDULER` | `false` | Set `true` to stop the background jobs (task reminders, webhook delivery) in this process, for example when running several replicas and one of them runs them. |
 | `APP_URL` | none | Public address, used in links in phone notifications and calendar events when an admin hasn't set one under Integrations. |
 | `DISABLE_PUSH` | `false` | Set `true` to stop sending phone notifications through ntfy. |
 | `INTERNAL_URL` | `http://127.0.0.1:$PORT` | Address the PDF renderer uses to load the print page. Only change it if the app can't reach itself on localhost. |

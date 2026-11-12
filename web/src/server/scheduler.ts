@@ -9,16 +9,7 @@ const g = globalThis as unknown as { __hccScheduler?: boolean };
 export function startScheduler(db: DB) {
   if (g.__hccScheduler || process.env.DISABLE_SCHEDULER === "true") return;
   g.__hccScheduler = true;
-  const hourly = async () => {
-    try {
-      const { sweepReviewReminders } = await import("@/server/services/reviews");
-      await sweepReviewReminders(db);
-    } catch (e) {
-      console.error("Scheduled review reminders failed:", e);
-    }
-  };
-  setTimeout(hourly, 30_000).unref();
-  setInterval(hourly, 60 * 60_000).unref();
+  // SOP review reminders are off: the Reviews feature was removed (review dates are kept, unused).
 
   // Task due-date reminders: every 15 minutes, so a short reminder window still lands on time.
   const taskReminders = async () => {

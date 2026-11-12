@@ -54,7 +54,7 @@ test("change an SOP's document code, or give it the next code of a new folder", 
 
   const details = async () => {
     await page.getByRole("button", { name: "More actions" }).click();
-    await page.getByRole("menuitem", { name: /Owner, folder, tags/ }).click();
+    await page.getByRole("menuitem", { name: /Owner, folder, code/ }).click();
     return page.getByRole("dialog", { name: "SOP details" });
   };
   let dialog = await details();

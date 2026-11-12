@@ -1,11 +1,11 @@
 "use client";
 
-import { BookOpen, FolderKanban, Home, Inbox, Users } from "lucide-react";
+import { BookOpen, Box, FolderKanban, Home, Inbox } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const ICONS = { home: Home, sops: BookOpen, projects: FolderKanban, inbox: Inbox, roster: Users } as const;
+const ICONS = { home: Home, sops: BookOpen, projects: FolderKanban, inbox: Inbox, gear: Box } as const;
 
 /** Phone navigation along the bottom edge, thumb-reachable. Hidden on desktop and in print. */
 export function TabBar({ tabs }: { tabs: { href: string; label: string; icon: keyof typeof ICONS; count?: number }[] }) {

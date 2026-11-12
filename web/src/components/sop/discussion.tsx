@@ -103,8 +103,8 @@ export function CommentsButton() {
   const open = d.threads.filter((t) => !t.resolvedAt).length;
   if (!d.userId) return null;
   return (
-    <Button size="sm" variant="ghost" onClick={() => d.open(null)} aria-label="Comments">
-      <MessageSquare /> <span className="hidden sm:inline">Comments</span>
+    <Button size={open ? "sm" : "icon-sm"} variant="ghost" onClick={() => d.open(null)} aria-label={open ? `Comments (${open} open)` : "Comments"} title="Comments">
+      <MessageSquare />
       {open > 0 && <span className="font-mono text-xs text-muted">{open}</span>}
     </Button>
   );

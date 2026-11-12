@@ -9,7 +9,6 @@ import { listActivity } from "@/server/services/activity";
 import { insuranceWarnings } from "@/server/services/contractors";
 import { unreadCount } from "@/server/services/notifications";
 import { listProjects, type Project } from "@/server/services/projects";
-import { listRoster } from "@/server/services/roster";
 import { listSops } from "@/server/services/sops";
 import { myTasks, taskLink } from "@/server/services/tasks";
 import { Page, PageHeader } from "@/components/page";
@@ -50,8 +49,7 @@ async function Dashboard() {
   if (!actor.userId) redirect("/welcome"); // an expired session: the public home page
   const editor = atLeast(actor, "editor");
   const t = today();
-  const [roster, unread, sops, projects, mine, warnings, activity] = await Promise.all([
-    listRoster(db, actor),
+  const [unread, sops, projects, mine, warnings, activity] = await Promise.all([
     unreadCount(db, actor),
     listSops(db, actor),
     listProjects(db, actor),
@@ -64,8 +62,6 @@ async function Dashboard() {
   const overdue = mine.filter((x) => isOverdue(x, t));
   const week = mine.filter((x) => x.due && !isOverdue(x, t) && x.due <= addDays(t, 7));
   const later = mine.filter((x) => !overdue.includes(x) && !week.includes(x));
-  const people = roster.people.slice(0, 8);
-  const roleName = new Map(roster.roles.map((r) => [r.id, r.name]));
 
   const taskRow = (x: (typeof mine)[number]) => (
     <li key={x.id}>
@@ -151,24 +147,6 @@ async function Dashboard() {
               )}
             </Card>
           )}
-          <Card
-            title="Team"
-            action={
-              <Link href="/roster" className="text-xs text-muted hover:text-fg-hi">
-                Full roster
-              </Link>
-            }
-          >
-            <ul className="grid grid-cols-1 gap-1.5">
-              {people.map((p) => (
-                <li key={p.id} className="flex items-center gap-2 text-[13px]">
-                  <span className="min-w-0 flex-1 truncate text-fg-hi">{p.name}</span>
-                  <span className="truncate text-xs text-muted">{p.roleIds.map((id) => roleName.get(id)).filter(Boolean).join(", ")}</span>
-                </li>
-              ))}
-              {!people.length && <li className="text-[13px] text-muted">No one on the roster yet.</li>}
-            </ul>
-          </Card>
         </div>
         {active.length > 0 && (
           <Card title="Active projects">

@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArchiveRestore, CalendarCheck, ChevronDown, FileDown, History, MoreHorizontal, Pencil, GraduationCap, Settings2, Share2, Trash2, Workflow } from "lucide-react";
+import { Archive, ArchiveRestore, FileDown, History, MoreHorizontal, Pencil, Settings2, Share2, Trash2, Workflow } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
-import { MarkReviewedDialog } from "./mark-reviewed";
 import { ShareDialog } from "./share-dialog";
 
 type Props = {
@@ -31,8 +30,8 @@ type Props = {
 
 export function SopActions(p: Props) {
   const [details, setDetails] = useState(false);
-  const [reviewing, setReviewing] = useState(false);
   const [sharing, setSharing] = useState(false);
+  // The rest of the page's actions sit as compact icon buttons beside Edit.
   const [confirm, setConfirm] = useState<null | "retire" | "delete">(null);
   const [typed, setTyped] = useState("");
   const [pending, start] = useTransition();
@@ -49,8 +48,8 @@ export function SopActions(p: Props) {
       )}
       <Menu>
         <MenuTrigger asChild>
-          <Button size="sm">
-            <FileDown /> PDF <ChevronDown className="!size-3 text-muted" />
+          <Button size="icon-sm" variant="ghost" aria-label="PDF" title="Download PDF">
+            <FileDown />
           </Button>
         </MenuTrigger>
         <MenuContent align="end">
@@ -67,9 +66,9 @@ export function SopActions(p: Props) {
           )}
         </MenuContent>
       </Menu>
-      <Button asChild size="sm" variant="ghost">
+      <Button asChild size="icon-sm" variant="ghost" aria-label="History" title="Version history">
         <Link href={`/sops/${p.sopId}/history`}>
-          <History /> <span className="hidden sm:inline">History</span>
+          <History />
         </Link>
       </Button>
       <Button asChild size="icon-sm" variant="ghost" aria-label="Flowchart" title="Flowchart">
@@ -88,24 +87,12 @@ export function SopActions(p: Props) {
           <MenuContent align="end">
             {p.canEdit && (
               <MenuItem onSelect={() => setDetails(true)}>
-                <Settings2 /> Owner, folder, tags & review…
-              </MenuItem>
-            )}
-            {p.published && !p.retired && (
-              <MenuItem asChild>
-                <Link href={`/sops/${p.sopId}/training`}>
-                  <GraduationCap /> Training & quiz
-                </Link>
+                <Settings2 /> Owner, folder, code & tags…
               </MenuItem>
             )}
             {p.published && !p.retired && (
               <MenuItem onSelect={() => setSharing(true)}>
                 <Share2 /> Share outside the team…
-              </MenuItem>
-            )}
-            {p.published && !p.retired && (
-              <MenuItem onSelect={() => setReviewing(true)}>
-                <CalendarCheck /> Mark as reviewed…
               </MenuItem>
             )}
             {p.canManage && (
@@ -138,7 +125,6 @@ export function SopActions(p: Props) {
       )}
       <ThemeToggle />
 
-      <MarkReviewedDialog sopId={p.sopId} title={p.title} open={reviewing} onOpenChange={setReviewing} />
       {p.canEdit && <ShareDialog sopId={p.sopId} open={sharing} onOpenChange={setSharing} />}
 
       <Dialog open={details} onOpenChange={setDetails}>
@@ -154,7 +140,6 @@ export function SopActions(p: Props) {
                   ...(p.canManage ? (fd.get("newCode") ? { newCodeForFolder: true } : { documentCode: String(fd.get("code") ?? "") }) : {}),
                   folderId: String(fd.get("folder")),
                   tags: String(fd.get("tags") ?? "").split(",").map((t) => t.trim()).filter(Boolean),
-                  reviewIntervalDays: Number(fd.get("interval")),
                   urlPatterns: String(fd.get("pages") ?? "").split(/[\n,]/).map((t) => t.trim()).filter(Boolean),
                 });
                 if (res.ok) {
@@ -196,9 +181,6 @@ export function SopActions(p: Props) {
             </Field>
             <Field label="Web pages" htmlFor="pages" hint="The browser extension suggests this SOP on these pages. One per line, * for anything, e.g. studio.youtube.com/*">
               <Textarea id="pages" name="pages" rows={2} defaultValue={p.meta.urlPatterns.join("\n")} />
-            </Field>
-            <Field label="Review every (days)" htmlFor="interval" hint="The next review date is counted from the last publish.">
-              <Input id="interval" name="interval" type="number" min={7} max={3650} defaultValue={p.meta.reviewIntervalDays} />
             </Field>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="ghost" onClick={() => setDetails(false)}>

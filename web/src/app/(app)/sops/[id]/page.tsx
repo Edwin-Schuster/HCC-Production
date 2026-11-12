@@ -12,7 +12,6 @@ import { getApprovalState } from "@/server/services/approvals";
 import { ReviewPanel } from "@/components/sop/review-panel";
 import { brandScope } from "@/server/services/branding";
 import { ViewBeacon } from "@/components/sop/view-beacon";
-import { StartRunButton } from "@/components/sop/start-run";
 import { listThreads } from "@/server/services/comments";
 import { listFeedback } from "@/server/services/feedback";
 import { CommentsButton, DiscussionProvider, StepTools, type StepInfo } from "@/components/sop/discussion";
@@ -184,7 +183,6 @@ async function Reader({ params, searchParams }: { params: PageProps<"/sops/[id]"
             totalMinutes={minutes}
             actions={
               <>
-                {signedIn && !version.isDraft && !viewingOld && sop.status !== "retired" && <StartRunButton sopId={sop.id} compact />}
                 {signedIn && <CommentsButton />}
                 <SopActions
                   sopId={sop.id}
@@ -211,15 +209,6 @@ async function Reader({ params, searchParams }: { params: PageProps<"/sops/[id]"
               compareHref={sop.currentVersionId ? `/sops/${sop.id}/compare?from=${sop.versionNumber}&to=draft` : null}
               lastEditorName={members.find((m) => m.id === approvals.lastEditorId)?.name ?? null}
             />
-          )}
-
-          {!version.isDraft && version.changeSummary && (
-            <p className="mt-4 text-[13px] text-muted">
-              <span className="text-fg-2">What changed in v{version.number}:</span> {version.changeSummary}{" "}
-              <Link href={`/sops/${sop.id}/history`} className="underline decoration-line-2 underline-offset-2 hover:text-fg-hi">
-                All versions
-              </Link>
-            </p>
           )}
 
           {items.length > 2 && (

@@ -10,7 +10,7 @@ test("home shows my tasks, the team and insurance warnings", async ({ page }) =>
   await expect(page.getByRole("heading", { level: 1 })).toContainText("E2E");
   await expect(page.getByRole("heading", { name: "My tasks" })).toBeVisible();
   await expect(page.getByRole("alert").filter({ hasText: "Summit Rigging" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Team" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Team" })).toHaveCount(0); // the roster was removed
   await expect(page.getByRole("link", { name: "Check in" })).toHaveCount(0);
 });
 

@@ -5,7 +5,6 @@ import { atLeast } from "@/server/permissions";
 import { listFolders } from "@/server/services/folders";
 import { listSops } from "@/server/services/sops";
 import { unreadCount } from "@/server/services/notifications";
-import { openTrainingCount } from "@/server/services/training";
 import { NavIcons, NavLink, SopTree } from "@/components/shell/nav";
 import { PaletteButton, ShellFrame } from "@/components/shell/frame";
 import { CommandPalette } from "@/components/shell/palette";
@@ -48,9 +47,8 @@ function Nav() {
 
 async function NavContent() {
   const { db, actor } = await getContext();
-  const [folders, sops, unread, training] = await Promise.all([listFolders(db, actor), listSops(db, actor), unreadCount(db, actor), openTrainingCount(db, actor)]);
+  const [folders, sops, unread] = await Promise.all([listFolders(db, actor), listSops(db, actor), unreadCount(db, actor)]);
   const editor = atLeast(actor, "editor");
-  const reviewsDue = editor ? sops.filter((s) => s.reviewState === "overdue" || s.reviewState === "due").length : 0;
   return (
     <>
       <nav className="grid gap-px" aria-label="Main">
@@ -74,21 +72,11 @@ async function NavContent() {
             <NavLink href="/projects" icon={NavIcons.projects}>
               Projects
             </NavLink>
-            <NavLink href="/runs" icon={NavIcons.runs}>
-              Runs
-            </NavLink>
             {editor && (
               <NavLink href="/contractors" icon={NavIcons.contractors}>
                 Contractors
               </NavLink>
             )}
-            <NavLink href="/roster" icon={NavIcons.roster}>
-              Roster
-            </NavLink>
-            <Sep />
-            <NavLink href="/training" icon={NavIcons.training}>
-              <Counted count={training}>Training</Counted>
-            </NavLink>
           </>
         )}
         {editor && (
@@ -97,18 +85,12 @@ async function NavContent() {
             <NavLink href="/gear" icon={NavIcons.gear}>
               Gear
             </NavLink>
-            <NavLink href="/reviews" icon={NavIcons.reviews}>
-              <Counted count={reviewsDue}>Reviews</Counted>
-            </NavLink>
             <NavLink href="/purchasing" icon={NavIcons.purchasing}>
               Budgets
             </NavLink>
             <Sep />
             <NavLink href="/snippets" icon={NavIcons.snippets}>
               Snippets
-            </NavLink>
-            <NavLink href="/analytics" icon={NavIcons.analytics}>
-              Analytics
             </NavLink>
             <NavLink href="/public-site" icon={NavIcons.site}>
               Public site
@@ -151,7 +133,7 @@ async function Tabs() {
         { href: "/", label: "Home", icon: "home" },
         { href: "/sops", label: "SOPs", icon: "sops" },
         { href: "/projects", label: "Projects", icon: "projects" },
-        { href: "/roster", label: "Roster", icon: "roster" },
+        { href: "/gear", label: "Gear", icon: "gear" },
         { href: "/inbox", label: "Inbox", icon: "inbox", count: await unreadCount(db, actor) },
       ]}
     />

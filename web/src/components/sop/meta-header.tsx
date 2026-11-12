@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { SopDocument } from "@/server/services/sops";
 import { LocalDate } from "@/components/local-date";
-import { ReviewBadge, StatusBadge } from "./status";
+import { StatusBadge } from "./status";
 import { formatMinutes } from "@/blocks/tree";
 
 /**
@@ -17,18 +17,11 @@ export function MetaHeader({ doc, totalMinutes, actions, print }: { doc: SopDocu
     ["Version", version.isDraft ? <span key="v">Draft{sop.versionNumber ? <span className="text-muted"> (after v{sop.versionNumber})</span> : null}</span> : <span key="v" className="font-mono">v{version.number}</span>],
     ["Owner", sop.ownerName],
     ["Effective", version.isDraft ? "Not published" : <LocalDate key="e" iso={version.publishedAt} />],
-    [
-      "Next review",
-      <span key="r" className="inline-flex items-center gap-1.5">
-        <LocalDate iso={sop.nextReviewAt} />
-        {!print && <ReviewBadge state={sop.reviewState} />}
-      </span>,
-    ],
     ["Status", <StatusBadge key="s" status={status} />],
   ];
   if (totalMinutes) items.push(["Time", <span key="t" className="font-mono">{formatMinutes(totalMinutes)}</span>]);
   return (
-    <header className="sop-header break-inside-avoid border-b border-line pb-6">
+    <header className={`sop-header break-inside-avoid border-b border-line ${print ? "pb-6" : "pb-5"}`}>
       {(doc.branding.logoUrl || doc.branding.headerText) && (
         <div className="mb-4 flex items-center gap-3">
           {doc.branding.logoUrl && (
@@ -38,29 +31,30 @@ export function MetaHeader({ doc, totalMinutes, actions, print }: { doc: SopDocu
           {doc.branding.headerText && <span className="text-xs font-[510] uppercase tracking-[0.06em] text-muted">{doc.branding.headerText}</span>}
         </div>
       )}
-      <div className="mb-2 flex flex-wrap items-center gap-x-2 text-xs text-muted">
-        <span>{sop.folderName}</span>
-        {sop.tags.length > 0 && <span aria-hidden>·</span>}
-        {sop.tags.map((t) => (
-          <span key={t} className="rounded-full border border-line px-1.5 leading-4 text-fg-2">
-            {t}
-          </span>
-        ))}
-        {!print && totalMinutes > 0 && (
-          <span className="print:hidden">
-            <span aria-hidden>· </span>
-            {formatMinutes(totalMinutes)}
-          </span>
-        )}
-        {!print && !version.isDraft && <ReviewBadge state={sop.reviewState} className="print:hidden" />}
-      </div>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <h1 className={print ? "text-[28px] font-[510] leading-[1.15] tracking-[-0.022em] text-fg-hi" : "text-[28px] font-[510] leading-[1.13] tracking-[-0.022em] text-fg-hi sm:text-[34px]"}>
-          {version.title}
-        </h1>
-        {actions && <div className="flex shrink-0 flex-wrap items-center gap-1.5 print:hidden">{actions}</div>}
-      </div>
-      {version.summary && <p className="mt-3 max-w-[62ch] text-[16px] leading-relaxed text-muted">{version.summary}</p>}
+      {print ? (
+        <>
+          <p className="mb-2 text-xs text-muted">{sop.folderName}</p>
+          <h1 className="text-[28px] font-[510] leading-[1.15] tracking-[-0.022em] text-fg-hi">{version.title}</h1>
+          {version.summary && <p className="mt-3 max-w-[62ch] text-[16px] leading-relaxed text-muted">{version.summary}</p>}
+        </>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+            <h1 className="min-w-0 text-[26px] font-[510] leading-[1.15] tracking-[-0.022em] text-fg-hi sm:text-[30px]">{version.title}</h1>
+            {actions && <div className="flex shrink-0 flex-wrap items-center gap-0.5 print:hidden">{actions}</div>}
+          </div>
+          {(sop.tags.length > 0 || totalMinutes > 0) && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-xs text-muted">
+              {totalMinutes > 0 && <span className="font-mono">{formatMinutes(totalMinutes)}</span>}
+              {sop.tags.map((t) => (
+                <span key={t} className="rounded-full border border-line px-1.5 leading-4 text-fg-2">
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+        </>
+      )}
       <dl className={`mt-5 grid-cols-4 gap-x-6 gap-y-3 rounded-[12px] border border-line bg-surface px-4 py-3.5 ${print ? "grid" : "hidden print:grid"}`}>
         {items.map(([k, v]) => (
           <div key={k} className="min-w-0">
