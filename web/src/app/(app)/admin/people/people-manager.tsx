@@ -1,9 +1,9 @@
 "use client";
 
-import { UserPlus } from "lucide-react";
+import { Trash2, UserPlus } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { upsertMemberAction } from "@/app/actions/admin";
+import { removeMemberAction, upsertMemberAction } from "@/app/actions/admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -49,7 +49,7 @@ export function PeopleManager({ members, selfId }: { members: Member[]; selfId: 
               const pw = String(fd.get("password") ?? "");
               start(async () => {
                 const res = await upsertMemberAction(
-                  { username: String(fd.get("username")), name: String(fd.get("name")), email: String(fd.get("email") ?? ""), role: fd.get("role") as Member["role"], ...(pw ? { password: pw } : {}) },
+                  { username: String(fd.get("username")), name: String(fd.get("name")), email: String(fd.get("email") ?? ""), role: (current?.id === selfId ? current.role : fd.get("role")) as Member["role"], ...(pw ? { password: pw } : {}) },
                   current?.id,
                 );
                 if (res.ok) {
@@ -71,16 +71,40 @@ export function PeopleManager({ members, selfId }: { members: Member[]; selfId: 
               <Input id="email" name="email" type="email" defaultValue={current?.email ?? ""} />
             </Field>
             <Field label="Role" htmlFor="role">
-              <Select id="role" name="role" defaultValue={current?.role ?? "editor"} disabled={current?.id === selfId}>
+              <Select id="role" name="role" defaultValue={current?.role ?? "editor"} disabled={current?.id === selfId} aria-describedby={current?.id === selfId ? "role-self" : undefined}>
                 <option value="viewer">Viewer — reads SOPs</option>
                 <option value="editor">Editor — writes and publishes SOPs</option>
                 <option value="admin">Admin — also manages people and folders</option>
               </Select>
+              {current?.id === selfId && (
+                <p id="role-self" className="mt-1.5 text-xs text-faint">
+                  You can't change your own role.
+                </p>
+              )}
             </Field>
             <Field label={current ? "Set a new password" : "Password"} htmlFor="password" hint={current ? "Leave blank to keep the current one. Setting one signs them out everywhere." : "At least 8 characters. Share it with them privately."}>
               <Input id="password" name="password" type="password" minLength={8} autoComplete="new-password" required={!current} />
             </Field>
-            <div className="flex justify-end gap-2">
+            <div className="flex items-center gap-2">
+              {current && current.id !== selfId && (
+                <Button
+                  type="button"
+                  variant="danger"
+                  disabled={pending}
+                  onClick={() => {
+                    if (!confirm(`Remove ${current.name}? They won't be able to sign in. Their name stays on the SOPs and history they wrote, and SOPs they own pass to you.`)) return;
+                    start(async () => {
+                      const res = await removeMemberAction(current.id);
+                      if (!res.ok) return void toast.error(res.error);
+                      toast(res.data.sopsReassigned ? `${res.data.name} removed. ${res.data.sopsReassigned} SOP${res.data.sopsReassigned === 1 ? " is" : "s are"} now yours.` : `${res.data.name} removed`);
+                      setEditing(null);
+                    });
+                  }}
+                >
+                  <Trash2 /> Remove
+                </Button>
+              )}
+              <span className="flex-1" />
               <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
                 Cancel
               </Button>

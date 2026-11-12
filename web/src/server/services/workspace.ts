@@ -1,9 +1,9 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Executor } from "@/db";
-import { people, sessions, users, workspaceMembers, workspaces } from "@/db/schema";
+import { apiKeys, people, sessions, sops, users, workspaceMembers, workspaces } from "@/db/schema";
 import { hashPassword } from "@/server/auth/password";
-import { forbidden, invalid } from "@/server/errors";
+import { forbidden, invalid, notFound } from "@/server/errors";
 import { canManageMembers, type Actor, type Role } from "@/server/permissions";
 
 export const DEFAULT_WORKSPACE_SLUG = "hcc";
@@ -84,5 +84,35 @@ export async function updateOwnProfile(db: Executor, actor: Actor, input: z.inpu
   await db.transaction(async (tx) => {
     await tx.update(users).set({ name: data.name, email: data.email || null }).where(eq(users.id, actor.userId!));
     await tx.update(people).set({ name: data.name }).where(and(eq(people.workspaceId, actor.workspaceId), eq(people.userId, actor.userId!)));
+  });
+}
+
+/**
+ * Removes someone: they can no longer sign in and disappear from the people list, the roster link and every
+ * picker. Their name stays on the SOPs, comments and history they wrote, so the user record is kept (turned
+ * off, with its username freed for reuse) rather than deleted. SOPs they owned pass to the admin removing them.
+ */
+export async function removeMember(db: Executor, actor: Actor, userId: string) {
+  if (!canManageMembers(actor)) throw forbidden("Only admins can remove people.");
+  if (userId === actor.userId) throw invalid("You can't remove yourself. Ask another admin.");
+  return db.transaction(async (tx) => {
+    const [m] = await tx
+      .select({ role: workspaceMembers.role, name: users.name })
+      .from(workspaceMembers)
+      .innerJoin(users, eq(users.id, workspaceMembers.userId))
+      .where(and(eq(workspaceMembers.workspaceId, actor.workspaceId), eq(workspaceMembers.userId, userId), eq(users.disabled, false)))
+      .limit(1);
+    if (!m) throw notFound("That person isn't in this workspace.");
+    if (m.role === "admin") {
+      const [{ n }] = await tx.select({ n: sql<number>`count(*)::int` }).from(workspaceMembers).innerJoin(users, eq(users.id, workspaceMembers.userId)).where(and(eq(workspaceMembers.workspaceId, actor.workspaceId), eq(workspaceMembers.role, "admin"), eq(users.disabled, false), ne(users.id, userId)));
+      if (!n) throw invalid("They're the only admin. Make someone else an admin first.");
+    }
+    const owned = await tx.update(sops).set({ ownerId: actor.userId! }).where(and(eq(sops.workspaceId, actor.workspaceId), eq(sops.ownerId, userId))).returning({ id: sops.id });
+    await tx.delete(sessions).where(eq(sessions.userId, userId));
+    await tx.delete(apiKeys).where(eq(apiKeys.userId, userId));
+    await tx.update(people).set({ userId: null }).where(eq(people.userId, userId));
+    await tx.delete(workspaceMembers).where(and(eq(workspaceMembers.workspaceId, actor.workspaceId), eq(workspaceMembers.userId, userId)));
+    await tx.update(users).set({ disabled: true, passwordHash: null, username: `removed-${userId.slice(0, 8)}-${Date.now().toString(36)}`, ntfyTopic: null }).where(eq(users.id, userId));
+    return { name: m.name, sopsReassigned: owned.length };
   });
 }

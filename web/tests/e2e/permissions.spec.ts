@@ -31,3 +31,26 @@ test("signed-out visitors cannot autosave drafts", async ({ page, browser }) => 
   expect([401, 403, 404]).toContain(res.status());
   await anon.close();
 });
+
+test("an admin can save their own account and remove someone", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/admin/people");
+  // Your own role can't be changed, but saving your own details still works.
+  await page.getByRole("button", { name: /\(you\)/ }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Email").fill("e2e-admin@example.org");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await expect(dialog).toBeHidden();
+
+  await page.getByRole("button", { name: "Add person" }).click();
+  await dialog.getByLabel("Name", { exact: true }).fill("Temporary Volunteer");
+  await dialog.getByLabel("Username").fill("temp-volunteer");
+  await dialog.getByLabel("Password").fill("password-123");
+  await dialog.getByRole("button", { name: "Add person" }).click();
+  await page.getByRole("button", { name: /Temporary Volunteer/ }).click();
+  page.once("dialog", (d) => d.accept());
+  await dialog.getByRole("button", { name: "Remove" }).click();
+  await expect(page.getByText("Temporary Volunteer removed")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Temporary Volunteer/ })).toHaveCount(0);
+});
