@@ -7,8 +7,11 @@ import { listActivity } from "@/server/services/activity";
 import { getProject } from "@/server/services/projects";
 import { assignableMembers, listTasks } from "@/server/services/tasks";
 import { listCables } from "@/server/services/cabling";
-import { projectBudget } from "@/server/services/purchasing";
-import { listPunch } from "@/server/services/contractors";
+import { listBom, projectBudget } from "@/server/services/purchasing";
+import { listContractors, listPunch, listScopes } from "@/server/services/contractors";
+import { listPorts } from "@/server/services/network";
+import { projectAttention } from "@/lib/attention";
+import { TriangleAlert, Info, CircleAlert } from "lucide-react";
 import { CABLE_VERIFIED } from "@/lib/cabling";
 import { Markdown } from "@/components/markdown";
 import { Button } from "@/components/ui/button";
@@ -53,7 +56,18 @@ async function Overview({ params }: { params: PageProps<"/projects/[id]">["param
       </div>
     );
 
-  const [tasks, members, history, cables, budget, punch] = await Promise.all([listTasks(db, actor, id), assignableMembers(db, actor), listActivity(db, actor, { projectId: id }, 8), listCables(db, actor, id), projectBudget(db, actor, id), listPunch(db, actor, { projectId: id, open: true })]);
+  const [tasks, members, history, cables, budget, punch, bom, scopes, allContractors, ports] = await Promise.all([
+    listTasks(db, actor, id),
+    assignableMembers(db, actor),
+    listActivity(db, actor, { projectId: id }, 8),
+    listCables(db, actor, id),
+    projectBudget(db, actor, id),
+    listPunch(db, actor, { projectId: id, open: true }),
+    listBom(db, actor, id),
+    listScopes(db, actor, { projectId: id }),
+    listContractors(db, actor),
+    listPorts(db, actor, id),
+  ]);
   const tested = cables.filter((c) => CABLE_VERIFIED.includes(c.status)).length;
   const t = today();
   const { total, done, overdue } = project.progress;
@@ -63,6 +77,17 @@ async function Overview({ params }: { params: PageProps<"/projects/[id]">["param
     .slice(0, 6);
   const names = new Map(members.map((m) => [m.id, m.name]));
   const team = [...new Set(tasks.flatMap((x) => x.assignees))].filter((u) => names.has(u));
+  const onProject = new Set(scopes.map((x) => x.contractorId));
+  const attention = projectAttention({
+    base: `/projects/${id}`,
+    categories: budget.byCategory,
+    bom,
+    scopes: scopes.map((x) => ({ company: x.company, status: x.status, valueCents: x.valueCents })),
+    contractors: allContractors.filter((c) => onProject.has(c.id)),
+    ports,
+    cables,
+    today: t,
+  });
 
   return (
     <div className="grid grid-cols-1 gap-6">
@@ -78,6 +103,26 @@ async function Overview({ params }: { params: PageProps<"/projects/[id]">["param
         <Stat label="Open punch items" value={punch.length} sub={punch.length ? `${punch.filter((x) => x.due && x.due < t).length} past due` : "Nothing outstanding"} />
         <Stat label="Cables tested" value={`${tested}/${cables.length}`} sub="Tested, labeled or complete" pct={cables.length ? (tested / cables.length) * 100 : 0} />
       </div>
+      {attention.length > 0 && (
+        <section aria-labelledby="attn-h" className="rounded-[12px] border border-line bg-surface p-5">
+          <h2 id="attn-h" className="text-[15px] font-[510]">
+            Needs attention <span className="font-normal text-muted">· {attention.length}</span>
+          </h2>
+          <ul className="mt-2 grid" role="list">
+            {attention.map((a) => {
+              const Icon = a.tone === "bad" ? CircleAlert : a.tone === "warn" ? TriangleAlert : Info;
+              return (
+                <li key={a.text}>
+                  <Link href={a.href} className="-mx-2 flex items-center gap-2.5 rounded-[6px] px-2 py-1.5 text-[13.5px] text-fg-2 hover:bg-wash-2 hover:text-fg-hi">
+                    <Icon className={cn("size-4 shrink-0", a.tone === "bad" ? "text-bad" : a.tone === "warn" ? "text-warn" : "text-muted")} aria-hidden />
+                    {a.text}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-[12px] border border-line bg-surface p-5">
           <h2 className="text-[15px] font-[510]">About this project</h2>

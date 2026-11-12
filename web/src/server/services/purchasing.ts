@@ -45,7 +45,7 @@ export const BomInput = z.object({
 
 export async function listBom(db: Executor, actor: Actor, projectId: string) {
   await loadProject(db, actor, projectId);
-  return (await db.select().from(bomItems).where(eq(bomItems.projectId, projectId)).orderBy(asc(bomItems.category), asc(bomItems.item))).map(toBom);
+  return (await db.select().from(bomItems).where(eq(bomItems.projectId, projectId)).orderBy(asc(bomItems.position), asc(bomItems.createdAt), asc(bomItems.item))).map(toBom);
 }
 
 async function loadBom(db: Executor, actor: Actor, id: string) {
@@ -58,7 +58,8 @@ async function loadBom(db: Executor, actor: Actor, id: string) {
 export async function createBomItem(db: Executor, actor: Actor, projectId: string, input: z.input<typeof BomInput>) {
   const project = await loadProject(db, actor, projectId);
   const { unitCost, ...data } = BomInput.parse(input);
-  const [row] = await db.insert(bomItems).values({ workspaceId: actor.workspaceId, projectId: project.id, ...data, unitCostCents: cents(unitCost) }).returning();
+  const [{ next }] = await db.select({ next: sql<number>`coalesce(max(${bomItems.position}), -1)::int + 1` }).from(bomItems).where(eq(bomItems.projectId, project.id));
+  const [row] = await db.insert(bomItems).values({ workspaceId: actor.workspaceId, projectId: project.id, ...data, unitCostCents: cents(unitCost), position: next }).returning();
   await logActivity(db, actor, { projectId: project.id, targetType: "bom", targetId: row.id, targetName: row.item, text: "added this to the bill of materials" });
   return toBom(row);
 }
@@ -317,7 +318,7 @@ export async function listBudgetLines(db: Executor, actor: Actor, projectId: str
 }
 
 /** The project's total budget follows its budget lines once it has any. */
-async function syncProjectBudget(db: Executor, projectId: string) {
+export async function syncProjectBudget(db: Executor, projectId: string) {
   const [{ total }] = await db.select({ total: sql<number>`coalesce(sum(${budgetLines.budgetCents}), 0)::int` }).from(budgetLines).where(eq(budgetLines.projectId, projectId));
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(budgetLines).where(eq(budgetLines.projectId, projectId));
   if (n > 0) await db.update(projects).set({ budgetCents: total, updatedAt: new Date() }).where(eq(projects.id, projectId));

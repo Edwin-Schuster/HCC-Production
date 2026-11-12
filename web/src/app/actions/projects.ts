@@ -10,6 +10,7 @@ import { createCable, createLayout, deleteCable, deleteLayout, importCables, sav
 import { createBomItem, createPurchaseOrder, deleteBomItem, deletePurchaseOrder, receivePurchaseOrder, updateBomItem, updatePurchaseOrder, type BomInput, type PoInput, type ReceiveInput, saveBudgetLine, deleteBudgetLine, type BudgetLineInput } from "@/server/services/purchasing";
 import { addPhotos, deletePhoto, updatePhoto, type PhotoEdit, type PhotoInput } from "@/server/services/photos";
 import { deletePort, importPorts, renameSwitch, savePort, type ImportPortsInput, type PortInput } from "@/server/services/network";
+import { createProjectFromWorkbook, importWorkbook, type WorkbookInput } from "@/server/services/project-import";
 import { run } from "./run";
 
 const Id = z.string().min(1).max(64);
@@ -74,3 +75,6 @@ export const savePortAction = async (projectId: string, input: z.input<typeof Po
 export const deletePortAction = async (id: string) => done(await run((db, actor) => deletePort(db, actor, Id.parse(id))));
 export const renameSwitchAction = async (projectId: string, from: string, to: string) => done(await run((db, actor) => renameSwitch(db, actor, Id.parse(projectId), z.string().max(80).parse(from), to)));
 export const importPortsAction = async (projectId: string, rows: z.input<typeof ImportPortsInput>) => done(await run((db, actor) => importPorts(db, actor, Id.parse(projectId), rows)));
+
+export const importWorkbookAction = async (projectId: string, input: z.input<typeof WorkbookInput>) => done(await run((db, actor) => importWorkbook(db, actor, Id.parse(projectId), input)));
+export const createProjectFromWorkbookAction = async (name: string, input: z.input<typeof WorkbookInput>) => done(await run((db, actor) => createProjectFromWorkbook(db, actor, z.string().max(120).parse(name), input)));

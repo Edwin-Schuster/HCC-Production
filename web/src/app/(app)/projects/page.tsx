@@ -11,6 +11,7 @@ import { Empty, Page, PageHeader } from "@/components/page";
 import { Gantt } from "@/components/work/gantt";
 import { Meter, ProjectStatusBadge } from "@/components/work/badges";
 import { ProjectFormButton } from "@/components/work/project-form";
+import { WorkbookImportButton } from "@/components/work/workbook-import";
 import { formatDay, formatMoney } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Projects" };
@@ -38,7 +39,14 @@ async function Content() {
       <PageHeader
         title="Projects"
         subtitle={editor ? "Installs, upgrades and building work." : "What the production team is working on."}
-        actions={editor ? <ProjectFormButton members={members} /> : undefined}
+        actions={
+          editor ? (
+            <>
+              <WorkbookImportButton label="New from workbook" />
+              <ProjectFormButton members={members} />
+            </>
+          ) : undefined
+        }
       />
       {projects.length ? (
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" role="list">

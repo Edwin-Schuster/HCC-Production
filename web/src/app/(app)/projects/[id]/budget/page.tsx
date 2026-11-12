@@ -37,7 +37,7 @@ async function Content({ params }: { params: PageProps<"/projects/[id]/budget">[
       <div className="grid gap-3">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           <Stat label="Budget" value={formatMoney(b.budget)} sub={lines.length ? "The total of the budget lines below" : "Change it with Edit, above"} />
-          <Stat label="Planned (BOM)" value={formatMoney(b.planned)} sub={b.budget ? `${Math.round(pct(b.planned, b.budget))}% of budget` : undefined} pct={b.budget ? pct(b.planned, b.budget) : undefined} />
+          <Stat label="Planned" value={formatMoney(b.planned)} sub={b.budget ? `Parts list and quotes · ${Math.round(pct(b.planned, b.budget))}% of budget` : "Parts list and quotes"} pct={b.budget ? pct(b.planned, b.budget) : undefined} />
           <Stat label="Committed" value={formatMoney(b.committed)} sub="Purchase orders and signed scopes of work" pct={b.budget ? pct(b.committed, b.budget) : undefined} tone={b.committed > b.budget && b.budget ? "bad" : undefined} />
           <Stat label="Spent" value={formatMoney(b.spent)} sub="Goods received and invoices paid" pct={b.budget ? pct(b.spent, b.budget) : undefined} />
           <Stat label="Remaining" value={formatMoney(b.remaining)} sub="Budget minus committed" tone={b.remaining < 0 ? "bad" : undefined} />

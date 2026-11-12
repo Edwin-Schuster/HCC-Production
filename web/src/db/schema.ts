@@ -833,6 +833,8 @@ export const bomItems = pgTable("bom_items", {
   section: text("section").notNull().default(""),
   /** Where to buy it. */
   url: text("url").notNull().default(""),
+  /** Order within the project, as added or as in the imported workbook. */
+  position: integer("position").notNull().default(0),
   qty: doublePrecision("qty").notNull().default(1),
   unitCostCents: integer("unit_cost_cents").notNull().default(0),
   status: text("status").notNull().default("needed"),

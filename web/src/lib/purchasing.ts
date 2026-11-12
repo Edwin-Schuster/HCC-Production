@@ -92,3 +92,10 @@ function byCategory(cats: Map<string, Money>, lines: { category: string; source:
   rows.sort((a, b) => a.order - b.order || b.planned + b.committed - (a.planned + a.committed));
   return rows.map(({ order: _order, ...r }) => r);
 }
+
+/** A vendor's name from its web address, for links pasted without one. */
+export function vendorFromUrl(url: string): string {
+  const host = url.match(/^https?:\/\/(?:www\.|smile\.)?([^/]+)/i)?.[1]?.toLowerCase() ?? "";
+  const known: Record<string, string> = { "bhphotovideo.com": "B&H", "fullcompass.com": "Full Compass", "sweetwater.com": "Sweetwater", "amazon.com": "Amazon", "a.co": "Amazon", "bestbuy.com": "Best Buy", "ebay.com": "eBay", "adorama.com": "Adorama", "monoprice.com": "Monoprice", "cdw.com": "CDW" };
+  return known[host] ?? (host ? host.replace(/\.(com|net|org|co|us)$/, "") : "");
+}

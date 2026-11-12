@@ -11,12 +11,14 @@ import { Empty, Page } from "@/components/page";
 import { ProjectStatusBadge } from "@/components/work/badges";
 import { ProjectFormButton } from "@/components/work/project-form";
 import { ProjectTabs } from "@/components/work/project-tabs";
+import { WorkbookImportButton } from "@/components/work/workbook-import";
 import { formatDay } from "@/lib/format";
 
 const PROJECT_TABS: [string, string][] = [
   ["", "Overview"],
   ["tasks", "Tasks"],
   ["cabling", "Cabling"],
+  ["network", "Network"],
   ["layouts", "Room layouts"],
   ["budget", "Budget"],
   ["contractors", "Contractors"],
@@ -72,6 +74,7 @@ async function Header({ params }: { params: LayoutProps<"/projects/[id]">["param
                 <Printer /> Report
               </Link>
             </Button>
+            <WorkbookImportButton projectId={id} />
             <ProjectFormButton project={full} members={members} />
           </div>
         )}

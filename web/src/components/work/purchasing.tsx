@@ -10,7 +10,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import type { Attachment } from "@/db/schema";
 import { formatDay, formatMoney } from "@/lib/format";
-import { BOM_STATUSES, BOM_STATUS_LABEL, BUDGET_CATEGORIES, PO_STATUSES, PO_STATUS_LABEL, type BomStatus, type PoStatus } from "@/lib/purchasing";
+import { BOM_STATUSES, BOM_STATUS_LABEL, BUDGET_CATEGORIES, vendorFromUrl, PO_STATUSES, PO_STATUS_LABEL, type BomStatus, type PoStatus } from "@/lib/purchasing";
 import { downloadCsv, slug } from "@/lib/csv";
 import type { BomItem, PurchaseOrder } from "@/server/services/purchasing";
 import { DataTable } from "./data-table";
@@ -31,13 +31,6 @@ function Categories() {
       ))}
     </datalist>
   );
-}
-
-/** A vendor's name from its web address, for links pasted without one. */
-export function vendorFromUrl(url: string): string {
-  const host = url.match(/^https?:\/\/(?:www\.|smile\.)?([^/]+)/i)?.[1]?.toLowerCase() ?? "";
-  const known: Record<string, string> = { "bhphotovideo.com": "B&H", "fullcompass.com": "Full Compass", "sweetwater.com": "Sweetwater", "amazon.com": "Amazon", "a.co": "Amazon", "bestbuy.com": "Best Buy", "ebay.com": "eBay", "adorama.com": "Adorama", "monoprice.com": "Monoprice", "cdw.com": "CDW" };
-  return known[host] ?? (host ? host.replace(/\.(com|net|org|co|us)$/, "") : "");
 }
 
 type Group = { key: string; title: string; items: BomItem[]; sections: { title: string; items: BomItem[] }[] };
