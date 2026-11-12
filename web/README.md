@@ -15,6 +15,16 @@ The production team app for Hope Christian Church: SOPs, the roster, projects, c
 - **Measure:** **analytics** for reads, most-skipped steps, run times against estimates, and feedback; a plain-language **audit log**.
 - **Share and connect:** **share links** (optional password and expiry) for people outside the team; a **REST API** with personal API keys; signed **webhooks**; an **embed** script for other websites; and a **browser extension** (in [`../extension`](../extension/README.md)) that shows the SOPs for the page you're on and records clicks into a new SOP with screenshots.
 
+Public site (no sign-in needed):
+
+- **Home** at `/` for anyone not signed in: an intro to HCC Production and cards for each section, with a small **Sign in** button. Signed-in staff still get the app's home and sidebar at `/`.
+- **What we do:** service cards (Sunday services, livestream & recording, conferences, concerts, ministry events, small events), each with an optional photo.
+- **Gear at Hope:** gear by room (Worship Center, Atrium, Greenroom, Room 1, Room 2) grouped as Audio, Video, Lighting, and Stage & power; an optional stage plot from a room layout; and a **tech packet PDF** per room. Built from the Gear module: only gear marked *Show on public page* appears, and only its public name, quantity and public note. Serials, IPs, MACs, purchase details, notes and config backups never do.
+- **For guest presenters & bands:** formats, what we provide and what to bring, an advance checklist and arrival details.
+- **SOPs:** the folders marked public, in the usual SOP pages.
+
+Editors manage all of it on **Public site** in the app (and each gear item's *Public page* panel).
+
 Production modules:
 
 - **Home:** your tasks by due date, the team and their roles, contractor insurance warnings, active projects, recent activity.

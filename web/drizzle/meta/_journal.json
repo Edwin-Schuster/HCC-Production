@@ -120,6 +120,13 @@
       "when": 1794441881637,
       "tag": "0016_bom_position",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794443632369,
+      "tag": "0017_public_site",
+      "breakpoints": true
     }
   ]
 }

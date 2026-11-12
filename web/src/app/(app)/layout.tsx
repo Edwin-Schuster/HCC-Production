@@ -110,6 +110,9 @@ async function NavContent() {
             <NavLink href="/analytics" icon={NavIcons.analytics}>
               Analytics
             </NavLink>
+            <NavLink href="/public-site" icon={NavIcons.site}>
+              Public site
+            </NavLink>
           </>
         )}
       </nav>

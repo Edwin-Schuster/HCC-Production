@@ -998,6 +998,49 @@ export const invoices = pgTable("invoices", {
 export type FirmwareChange = { from: string; to: string; at: string; by: string; note?: string };
 export type ConfigBackup = { id: string; url: string; name: string; size: number; mime?: string; note: string; firmware?: string; at: string; by: string };
 
+// ---------------------------------------------------------------------------
+// Public site: what HCC Production is and offers, readable without signing in
+// ---------------------------------------------------------------------------
+
+/** One per workspace: the public home page's intro and the guest presenters page. */
+export const publicSite = pgTable("public_site", {
+  workspaceId: text("workspace_id")
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  heroTitle: text("hero_title").notNull().default(""),
+  /** Markdown. */
+  heroIntro: text("hero_intro").notNull().default(""),
+  /** Markdown: formats, what we provide vs. what to bring, advance checklist, arrival. */
+  guestsBody: text("guests_body").notNull().default(""),
+  updatedAt: updatedAt(),
+});
+
+/** "What we do": one card per service. */
+export const publicServices = pgTable("public_services", {
+  id: id(),
+  workspaceId: ws(),
+  title: text("title").notNull(),
+  body: text("body").notNull().default(""),
+  photoUrl: text("photo_url"),
+  position: integer("position").notNull().default(0),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+/** Rooms on the public gear page, each with notes for its tech packet and an optional stage plot. */
+export const publicRooms = pgTable("public_rooms", {
+  id: id(),
+  workspaceId: ws(),
+  name: text("name").notNull(),
+  /** Markdown: power, load-in, stage size. */
+  notes: text("notes").notNull().default(""),
+  /** A room layout (from any project) shown read-only as the stage plot. */
+  layoutId: text("layout_id").references(() => layouts.id, { onDelete: "set null" }),
+  position: integer("position").notNull().default(0),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
 export const gear = pgTable("gear", {
   id: id(),
   workspaceId: ws(),
@@ -1019,6 +1062,14 @@ export const gear = pgTable("gear", {
   notes: text("notes").notNull().default(""),
   configs: jsonb("configs").$type<ConfigBackup[]>().notNull().default([]),
   photos: jsonb("photos").$type<Attachment[]>().notNull().default([]),
+  /** Public gear page. Only these public* fields are ever shown there. */
+  publicShow: boolean("public_show").notNull().default(false),
+  publicName: text("public_name").notNull().default(""),
+  publicQty: integer("public_qty").notNull().default(1),
+  publicNote: text("public_note").notNull().default(""),
+  publicRoomId: text("public_room_id").references(() => publicRooms.id, { onDelete: "set null" }),
+  /** audio | video | lighting | stage */
+  publicGroup: text("public_group").notNull().default(""),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

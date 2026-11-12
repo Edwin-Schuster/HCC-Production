@@ -47,7 +47,7 @@ function Card({ title, action, children, className }: { title: string; action?: 
 
 async function Dashboard() {
   const { db, actor } = await getContext();
-  if (!actor.userId) redirect("/sops");
+  if (!actor.userId) redirect("/welcome"); // an expired session: the public home page
   const editor = atLeast(actor, "editor");
   const t = today();
   const [roster, unread, sops, projects, mine, warnings, activity] = await Promise.all([

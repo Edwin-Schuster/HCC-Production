@@ -7,6 +7,8 @@ import { getDb } from "@/db";
 import { requireRole } from "@/server/context";
 import { AppError } from "@/server/errors";
 import { getGear } from "@/server/services/gear";
+import { gearPublicSettings } from "@/server/services/public-site";
+import { GearPublicForm } from "@/components/site/site-editor";
 import { getDefaultWorkspace } from "@/server/services/workspace";
 import { Page } from "@/components/page";
 import { Button } from "@/components/ui/button";
@@ -37,7 +39,7 @@ async function Content({ params }: { params: PageProps<"/gear/[id]">["params"] }
     if (e instanceof AppError && e.status < 500) notFound();
     throw e;
   }
-  const ws = await getDefaultWorkspace(db);
+  const [ws, pub] = await Promise.all([getDefaultWorkspace(db), gearPublicSettings(db, actor, g.id)]);
   const facts: [string, string, boolean?][] = [
     ["Category", g.category],
     ["Manufacturer", g.manufacturer],
@@ -71,6 +73,12 @@ async function Content({ params }: { params: PageProps<"/gear/[id]">["params"] }
           <GearButton item={g} />
         </div>
       </header>
+      <section aria-labelledby="pub-h" className="mb-6 rounded-[12px] border border-line bg-surface p-4">
+        <h2 id="pub-h" className="mb-2 text-[15px] font-[510]">
+          Public page
+        </h2>
+        <GearPublicForm item={pub.item} rooms={pub.rooms} compact />
+      </section>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="rounded-[12px] border border-line bg-surface p-4">
           <dl className="grid grid-cols-[130px_1fr] gap-x-4 gap-y-1.5 text-[13px]">

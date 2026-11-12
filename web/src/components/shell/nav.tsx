@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, BookOpen, Box, House, ListTodo, ShoppingCart, CalendarClock, ChevronRight, FolderKanban, GraduationCap, HardHat, Inbox, ListChecks, Puzzle, Search, Users } from "lucide-react";
+import { BarChart3, BookOpen, Globe, Box, House, ListTodo, ShoppingCart, CalendarClock, ChevronRight, FolderKanban, GraduationCap, HardHat, Inbox, ListChecks, Puzzle, Search, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
@@ -121,4 +121,4 @@ function SubFolder({ folder, depth, ...p }: BodyProps) {
   );
 }
 
-export const NavIcons = { home: <House />, tasks: <ListTodo />, library: <BookOpen />, search: <Search />, snippets: <Puzzle />, inbox: <Inbox />, reviews: <CalendarClock />, runs: <ListChecks />, analytics: <BarChart3 />, training: <GraduationCap />, roster: <Users />, projects: <FolderKanban />, gear: <Box />, contractors: <HardHat />, purchasing: <ShoppingCart /> };
+export const NavIcons = { home: <House />, tasks: <ListTodo />, library: <BookOpen />, search: <Search />, snippets: <Puzzle />, inbox: <Inbox />, reviews: <CalendarClock />, runs: <ListChecks />, analytics: <BarChart3 />, training: <GraduationCap />, roster: <Users />, projects: <FolderKanban />, gear: <Box />, contractors: <HardHat />, purchasing: <ShoppingCart />, site: <Globe /> };
